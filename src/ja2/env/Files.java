@@ -5,6 +5,7 @@
  */
 package ja2.env;
 
+import ja2.env.FileData.ReadFile;
 import java.util.ArrayList;
 import java.util.List;
 import ja2.env.FileData.WriteFile;
@@ -16,11 +17,13 @@ import ja2.env.FileData.WriteFile;
 public class Files {
 
     DirectoryData root = new DirectoryData(null, "/");
+
+    public List<ReadFile> readers = new ArrayList<>();
     public List<WriteFile> writers = new ArrayList<>();
+    private String wd = "/user";
 
     public INode inode(String path) throws FileException {
-        if (path.startsWith("/"))
-            path = path.substring(1);
+        path = refinePath(path);
         return root.inode(path);
     }
 
@@ -29,8 +32,7 @@ public class Files {
     }
 
     public FileData createEmpty(String path) throws FileException {
-        if (path.startsWith("/"))
-            path = path.substring(1);
+        path = refinePath(path);
         int index = path.lastIndexOf('/');
         DirectoryData dir = root;
         if (index >= 0)
@@ -41,15 +43,23 @@ public class Files {
     }
 
     public DirectoryData mkdir(String path) throws FileException {
-        if (path.startsWith("/"))
-            path = path.substring(1);
+        path = refinePath(path);
         int index = path.lastIndexOf('/');
         DirectoryData dir = root;
         if (index >= 0)
-            dir = (DirectoryData) inode(path.substring(0, index));
+            dir = (DirectoryData) inode("/" + path.substring(0, index));
         DirectoryData result = new DirectoryData(root, path.substring(index + 1));
         dir.content.add(result);
         return result;
+    }
+
+    private String refinePath(String path) {
+        String op = path;
+        if (!path.startsWith("/"))
+            path = wd + "/" + path;
+        path = path.substring(1);
+        System.out.println(op + "->" + path);
+        return path;
     }
 
     public boolean exists(String fpath) {

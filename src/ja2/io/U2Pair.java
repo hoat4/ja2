@@ -7,10 +7,14 @@ package ja2.io;
 public class U2Pair {
 
     public int a, b;
+    public Object[] annotate;
 
     @Override
     public String toString() {
-        return "U2Pair[" + "a=" + a + ", b=" + b + ']';
+        if (annotate == null)
+            return "U2Pair[a=" + a + ", b=" + b + ']';
+        else
+            return annotate[0] + "[" + annotate[1] + "=" + a + ", " + annotate[2] + "=" + b + "]";
     }
 
 }

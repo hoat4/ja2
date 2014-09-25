@@ -1,32 +1,31 @@
-package javainterpreter;
+package ja2;
 
-import java.io.IOException;
+import ja2.platform.desktop.Main;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import static javainterpreter.Main.getBooleanConfig;
-import javainterpreter.callback.ErrorCallback;
-import javainterpreter.callback.VmCallback;
-import javainterpreter.clazz.AbstractClassInfo;
-import javainterpreter.clazz.BadClassFileException;
-import javainterpreter.clazz.ClassInfo;
-import javainterpreter.clazz.ClassLoadHelper;
-import javainterpreter.clazz.JavaObject;
-import javainterpreter.clazz.JavaObject.JArray;
-import javainterpreter.clazz.JavaObject.JClassInstance;
-import javainterpreter.clazz.PrimitiveTypeClassInfo;
-import javainterpreter.member.MethodAccessFlag;
-import javainterpreter.member.MethodCallInfo;
-import javainterpreter.member.MethodInfo;
-import javainterpreter.vm.Bytecodes;
+import static ja2.platform.desktop.Main.getBooleanConfig;
+import ja2.callback.ErrorCallback;
+import ja2.callback.VmCallback;
+import ja2.clazz.AbstractClassInfo;
+import ja2.clazz.ArrayTypeClassInfo;
+import ja2.clazz.ClassInfo;
+import ja2.clazz.ClassLoadHelper;
+import ja2.clazz.JavaObject;
+import ja2.clazz.JavaObject.JArray;
+import ja2.clazz.JavaObject.JClassInstance;
+import ja2.clazz.PrimitiveTypeClassInfo;
+import ja2.member.MethodAccessFlag;
+import ja2.member.MethodCallInfo;
+import ja2.member.MethodInfo;
+import ja2.vm.Bytecodes;
 
 /**
  *
  * @author Attila
  */
-public class JavaInterpreter {
+public class Initialization {
 
     public static final List<MethodCallInfo> methodCalls = new ArrayList<>();
     public static final boolean logStatementCode = getBooleanConfig("vm.methodLogging.logInstructionCode");
@@ -40,31 +39,6 @@ public class JavaInterpreter {
     public static JThread currentThread;
     public static volatile boolean enable = getBooleanConfig("vm.enable");
 
-//    private static void invokeConstructor(String jarFile, final Runnable callback) throws IOException {
-//        try {
-//            USER_CLASSLOADER = new JClassInstance(loadSystemClass("java/net/URLClassLoader"));
-//            JArray array = new JArray(1, JavaType.clazz("java/net/URL"));
-//            JClassInstance url = new JClassInstance(loadSystemClass("java/net/URL"));
-//            currentThread.executeMethod(url.classInfo.getMethod("<init>", "(Ljava/lang/String;)V"),
-//                    url, new Object[]{convertString(jarFile)}, new VmCallback<Object>() {
-//                @Override
-//                public void methodCalled(MethodInfo method, Object result) {
-//                    array.array[0] = url;
-//                    currentThread.executeMethod(USER_CLASSLOADER.classInfo
-//                            .getMethod("<init>", "[Ljava/net/URL;"),
-//                            null, new Object[]{array}, new VmCallback<Object>() {
-//                        @Override
-//                        public void methodCalled(MethodInfo method, Object result) {
-//                            callback.run();
-//                        }
-//                    });
-//                }
-//            });
-//        } catch (NoSuchMethodException ex) {
-//            throw new RuntimeException(
-//                    "Bad rt.jar(Cannot find URL or URLClassLoader's constructor)");
-//        }
-//    }
     public static void initializeClass(AbstractClassInfo clazz, JThread thread, Runnable callback, ErrorCallback errorCallback) {
         if (Main.getBooleanConfig("vm.log.misc"))
             System.out.println("initclass: " + clazz.name);
@@ -84,7 +58,6 @@ public class JavaInterpreter {
                 else
                     callbackWrapper.run(false);
             }
-            classObjectMap.put(clazz.classObject, clazz);
         }, errorCallback);
         if (clazz.name.equals("java/lang/Class"))
             lambda.run((ClassInfo) clazz);
@@ -92,18 +65,28 @@ public class JavaInterpreter {
             ClassLoadHelper.loadClass("java/lang/Class", thread, lambda, errorCallback);
     }
 
+    public static void initializeArrayClass(ArrayTypeClassInfo clazz, JThread thread) {
+        if (Main.getBooleanConfig("vm.log.misc"))
+            System.out.println("initarrayclass: " + clazz.name);
+        ClassInfo classClass = ClassLoadHelper.instantLoadClass("java/lang/Class", thread);
+        JClassInstance instance = JClassInstance.createInstant(classClass);
+        clazz.classObject = instance;
+        instance.transfer = clazz;
+        if (Main.getBooleanConfig("vm.log.misc"))
+            System.out.println("inited arrayclass: " + clazz);
+    }
+
     public static void main(final String[] args) {
         long start_perf_ns_measure_local_variable_nb___ = System.nanoTime();
         try {
             work(args);
         } finally {
-        //    System.out.println("Performance: " + ((System.nanoTime() - start_perf_ns_measure_local_variable_nb___) / 1000) + " μs");
+            //    System.out.println("Performance: " + ((System.nanoTime() - start_perf_ns_measure_local_variable_nb___) / 1000) + " μs");
         }
     }
 
     private static void work(final String[] args) {
         System.out.println("JVM started");
-        try {
             if ((args.length == 1 && args[0].equals("-debug")) || (args.length
                     == 2 && args[1].equals("-debug")))
                 debugMode = true;
@@ -126,7 +109,7 @@ public class JavaInterpreter {
                                             systemClass.getMethod("initializeSystemClass", "()V", currentThread, (sysInitMethod) -> {
                                                 currentThread.executeMethod(sysInitMethod, null, NO_PARAMETERS, (ignored2) -> {
                                                     System.out.println("VM booted. ");
-                                                    ClassLoadHelper.loadClass("javainterpreter/test/Test", currentThread, (clazz) -> {
+                                                    ClassLoadHelper.loadClass(Main.getStringConfig("vm.start.main"), currentThread, (clazz) -> {
                                                         clazz.getMethod("main", "([Ljava/lang/String;)V", currentThread, (mainMethod) -> {
                                                             JavaType stringClass = JavaType.clazz("java/lang/String");
                                                             JArray argArray = new JArray(args.length, stringClass, currentThread);
@@ -149,12 +132,6 @@ public class JavaInterpreter {
 
             VmLifecycle vm = new VmLifecycle(currentThread);
             vm.run();
-        } catch (JException jex) {
-            String ts = toString((JClassInstance) jex.ex.fieldValues.get(
-                    "detailMessage"));
-            System.out.println("Java Exception: " + jex.ex.classInfo.name
-                    + ";message=" + ts);
-        }
     }
     public static final Object[] NO_PARAMETERS = MethodCallInfo.ZERO_PARAMETERS;
 
@@ -194,11 +171,12 @@ public class JavaInterpreter {
 
     public static void error(JThread thread, String errorClass, String message) {
         if (LOG_ERROR) {
-            System.out.println("Error:" + errorClass + ": " + message);
+            System.out.println("Error: " + errorClass + ": " + message);
             System.out.println("Thread: " + thread);
             System.out.println("Stack trace: ");
             for (MethodCallInfo methodCallInfo : thread.stackTrace)
                 System.out.println(methodCallInfo);
+            System.out.println("END");
             System.out.flush();
             throw new RuntimeException("VM Stack trace");
         }
@@ -219,7 +197,7 @@ public class JavaInterpreter {
                     }, (fatalError) -> {
                         throw new RuntimeException("FATAL ERROR: cannot dispatch exception", fatalError);
                     });
-        }, JavaInterpreter::handleError);
+        }, Initialization::handleError);
     }
 
     private static void setMethodArgumentVariables(JClassInstance thiz,
@@ -230,12 +208,10 @@ public class JavaInterpreter {
         for (Object arg : args)
             localVariables[i++] = arg;
     }
-    private static final Map<JClassInstance, AbstractClassInfo> classObjectMap
-            = new HashMap<>();
 
     public static JClassInstance getClassLoader(JClassInstance classObject) {
-        AbstractClassInfo aci = classObjectMap.get(classObject);
-        if (aci.isPrimitiveClass)
+        AbstractClassInfo aci = (AbstractClassInfo) classObject.transfer;
+        if (aci.isPrimitive)
             return null;
         ClassInfo clazz = (ClassInfo) aci;
         if (clazz.systemClass)
@@ -244,7 +220,7 @@ public class JavaInterpreter {
     }
 
     public static AbstractClassInfo getClassInfo(JClassInstance classObject) {
-        return classObjectMap.get(classObject);
+        return (AbstractClassInfo) classObject.transfer;
     }
 
     private static void createStackTraceElement(MethodInfo method, JThread thread, VmCallback<JClassInstance> callback, ErrorCallback ec) {
@@ -282,24 +258,15 @@ public class JavaInterpreter {
 
             for (PrimitiveTypeClassInfo cinfo : PrimitiveTypeClassInfo.array)
                 classClass.instantiate(thread, (instance) -> {
-                    classObjectMap.put(instance, cinfo);
                     cinfo.classObject = instance;
+                    instance.transfer = cinfo;
                     if (++helper.counter >= helper.max)
                         callback.run();
                 }, ec);
         }, ec);
     }
 
-    private JavaInterpreter() {
+    private Initialization() {
     }
 
-    private static class JException extends RuntimeException {
-
-        public final JavaObject.JClassInstance ex;
-
-        public JException(JavaObject.JClassInstance ex) {
-            super("Java Exception");
-            this.ex = ex;
-        }
-    }
 }

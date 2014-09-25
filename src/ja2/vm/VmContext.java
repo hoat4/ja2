@@ -10,8 +10,8 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import ja2.JThread;
-import ja2.JavaInterpreter;
-import static ja2.JavaInterpreter.error;
+import ja2.Initialization;
+import static ja2.Initialization.error;
 import ja2.JavaType;
 import ja2.platform.desktop.Main;
 import ja2.callback.ErrorCallback;
@@ -48,8 +48,8 @@ public class VmContext {
     public final JThread thread;
     public final MethodCallInfo call;
     public boolean isLocked;
-    public final boolean logging = JavaInterpreter.debugger != null;
-    public final ErrorCallback ec = JavaInterpreter::handleError;
+    public final boolean logging = Initialization.debugger != null;
+    public final ErrorCallback ec = Initialization::handleError;
     public final JavaObject.JClassInstance thiz;
 
     public VmContext(MethodCallInfo methodCall, JavaObject.JClassInstance thiz, JThread thread) {
@@ -78,7 +78,7 @@ public class VmContext {
             in = null;
             localVariables = null;
         }
-        this.constantPool = clazz.contextConstantPool;
+        this.constantPool = clazz.cp;
         this.constantPoolElementTypes = method.clazz.contextConstantPoolElementTypes;
         call = methodCall;
     }
@@ -104,17 +104,31 @@ public class VmContext {
         //System.out.println("Logged: "+msg);
     }
 
-    public void getMethod(int methodRefIndex, final VmCallback<MethodInfo> callback, ErrorCallback ec) {
+    public void lookupMethod(int methodRefIndex, final VmCallback<MethodInfo> callback, ErrorCallback ec) {
         final U2Pair methodref = (U2Pair) constantPool[methodRefIndex];
-        ClassLoadHelper.loadClass((String) clazz.contextConstantPool[(int) clazz.contextConstantPool[methodref.a]], thread, (clasz) -> {
-            U2Pair nATD = (U2Pair) clazz.contextConstantPool[methodref.b];
-            String name = (String) clazz.contextConstantPool[nATD.a];
-            String descriptor = (String) clazz.contextConstantPool[nATD.b];
+        ClassLoadHelper.loadClass((String) clazz.cp[(int) clazz.cp[methodref.a]], thread, (clasz) -> {
+            U2Pair nATD = (U2Pair) clazz.cp[methodref.b];
+            String name = (String) clazz.cp[nATD.a];
+            String descriptor = (String) clazz.cp[nATD.b];
             clasz.getMethod(name, descriptor, thread, callback, (error) -> {
-                JavaInterpreter.error(thread, "java/lang/NoSuchMethodError", error.toString());
+                Initialization.error(thread, "java/lang/NoSuchMethodError", error.toString());
             });
         }, ec);
+    }
 
+    public void lookupMethod(JavaObject.JClassInstance object, int methodRefIndex, final VmCallback<MethodInfo> callback, ErrorCallback ec) {
+        if (object == null) {
+            lookupMethod(methodRefIndex, callback, ec);
+            return;
+        }
+        final U2Pair methodref = (U2Pair) constantPool[methodRefIndex];
+        ClassInfo clasz = object.classInfo;
+        U2Pair nATD = (U2Pair) clazz.cp[methodref.b];
+        String name = (String) clazz.cp[nATD.a];
+        String descriptor = (String) clazz.cp[nATD.b];
+        clasz.getMethod(name, descriptor, thread, callback, (error) -> {
+            Initialization.error(thread, "java/lang/NoSuchMethodError", error.toString());
+        });
     }
     /*public static MethodInfo getMethod(ClassInfo currentClass,
      ClassInfo methodClass, int methodRefIndex) {
@@ -134,24 +148,24 @@ public class VmContext {
      }
      }*/
 
-    public void getField(int fieldRefIndex, final VmCallback<FieldInfo> callback, ErrorCallback ec) {
+    public void lookupField(int fieldRefIndex, final VmCallback<FieldInfo> callback, ErrorCallback ec) {
         final U2Pair fieldref = (U2Pair) constantPool[fieldRefIndex];
-        ClassLoadHelper.loadClass((String) clazz.contextConstantPool[(int) clazz.contextConstantPool[fieldref.a]], thread, (clasz) -> {
+        ClassLoadHelper.loadClass((String) clazz.cp[(int) clazz.cp[fieldref.a]], thread, (clasz) -> {
             U2Pair fieldReference = (U2Pair) constantPool[fieldRefIndex];
             U2Pair nametype = (U2Pair) constantPool[fieldReference.b];
             clasz.getField((String) constantPool[nametype.a], thread, callback, (error) -> {
-                JavaInterpreter.error(thread, "java/lang/NoSuchMethodError", error.toString());
+                Initialization.error(thread, "java/lang/NoSuchMethodError", error.toString());
             });
         }, ec);
     }
 
     public void getMethod(int methodRefIndex, ClassInfo clasz, VmCallback<MethodInfo> callback, ErrorCallback ec) {
         final U2Pair methodref = (U2Pair) constantPool[methodRefIndex];
-        U2Pair nATD = (U2Pair) clazz.contextConstantPool[methodref.b];
-        String name = (String) clazz.contextConstantPool[nATD.a];
-        String descriptor = (String) clazz.contextConstantPool[nATD.b];
+        U2Pair nATD = (U2Pair) clazz.cp[methodref.b];
+        String name = (String) clazz.cp[nATD.a];
+        String descriptor = (String) clazz.cp[nATD.b];
         clasz.getMethod(name, descriptor, thread, callback, (error) -> {
-            JavaInterpreter.error(thread, "java/lang/NoSuchMethodError", error.toString());
+            Initialization.error(thread, "java/lang/NoSuchMethodError", error.toString());
         });
     }
 
@@ -161,6 +175,12 @@ public class VmContext {
 
     public void absoluteJump(int i) {
         mcIn.pc = i;
+    }
+
+    public void lookup(String classname, String name, String descriptor, VmCallback<MethodInfo> callback) {
+        ClassLoadHelper.loadClass(classname, thread, (clazz) -> {
+            clazz.getMethod(name, descriptor, thread, callback, ec);
+        }, ec);
     }
 
 }

@@ -8,8 +8,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import ja2.JThread;
-import ja2.JavaInterpreter;
-import static ja2.JavaInterpreter.NO_PARAMETERS;
+import ja2.Initialization;
+import static ja2.Initialization.NO_PARAMETERS;
 import ja2.JavaType;
 import ja2.clazz.ClassInfo;
 import ja2.member.FieldInfo;
@@ -28,13 +28,14 @@ public abstract class JavaObject {
         public JavaType elemType;
 
         public JArray(final int arraylength, final JavaType elemType, JThread thread) {
-            super(ja2.clazz.ClassLoadHelper.instantLoadClass("java/lang/Object", thread));
+            super(ClassLoadHelper.instantLoadClass("java/lang/Object", thread));
             array = new Object[arraylength];
             if (elemType.primitive)
                 for (int i = 0; i < arraylength; i++)
                     array[i] = elemType.defaultValue;
             this.elemType = elemType;
-            if (JavaInterpreter.LOG_MISC)
+            descriptiveClassInfo = ArrayTypeClassInfo.of(elemType, thread);
+            if (Initialization.LOG_MISC)
                 System.out.println("Array created: " + elemType + "["
                         + arraylength
                         + "]");
@@ -58,7 +59,7 @@ public abstract class JavaObject {
     public static class JClassInstance extends JavaObject {
 
         private static int idGenerator = 0;
-        public final ClassInfo classInfo;
+        public ClassInfo classInfo, descriptiveClassInfo;
         public final Map<String, Object> fieldValues = new HashMap<>();
         public final int id = idGenerator++;
         @SuppressWarnings("PublicField")
@@ -66,7 +67,8 @@ public abstract class JavaObject {
         public List<JThread> lock = new ArrayList<>();
 
         public JClassInstance(ClassInfo clazz) {
-            classInfo = clazz;
+            classInfo = descriptiveClassInfo = clazz;
+            descriptiveClassInfo = clazz;
             FieldInfo[] clazzfields = clazz.fields;
             for (FieldInfo field : clazzfields)
                 fieldValues.put(field.name,
@@ -74,7 +76,7 @@ public abstract class JavaObject {
         }
 
         public JClassInstance(ClassInfo clazz, JThread thread, VmCallback<JClassInstance> callback, ErrorCallback ec) {
-            classInfo = clazz;
+            classInfo = descriptiveClassInfo = clazz;
             initFields(clazz, thread, callback, ec);
         }
 
@@ -97,10 +99,11 @@ public abstract class JavaObject {
 
         @Override
         public String toString() {
-            if (classInfo.name.equals("java/lang/String"))
-                return '"' + JavaInterpreter.toString(this) + '"';
-            else
-                return classInfo.name;
+            if (descriptiveClassInfo.name.equals("java/lang/Class"))
+                return descriptiveClassInfo.name + ": " + transfer;
+            if (descriptiveClassInfo.name.equals("java/lang/String"))
+                return '"' + Initialization.toString(this) + '"';
+            return descriptiveClassInfo.name;
         }
 
         void initFields(ClassInfo clazz, JThread thread, VmCallback<JClassInstance> callback, ErrorCallback ec) {

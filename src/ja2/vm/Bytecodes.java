@@ -8,16 +8,17 @@ package ja2.vm;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Deque;
-import ja2.JavaInterpreter;
-import static ja2.JavaInterpreter.LOG_MISC;
-import static ja2.JavaInterpreter.convertString;
-import static ja2.JavaInterpreter.debugger;
-import static ja2.JavaInterpreter.error;
-import static ja2.JavaInterpreter.logMethodInvoke;
-import static ja2.JavaInterpreter.throwException;
+import ja2.Initialization;
+import static ja2.Initialization.LOG_MISC;
+import static ja2.Initialization.convertString;
+import static ja2.Initialization.debugger;
+import static ja2.Initialization.error;
+import static ja2.Initialization.logMethodInvoke;
+import static ja2.Initialization.throwException;
 import ja2.JavaType;
 import static ja2.JavaType.VOID;
 import ja2.callback.VmCallback;
+import ja2.clazz.AbstractClassInfo;
 import ja2.clazz.BadClassFileException;
 import ja2.clazz.ClassLoadHelper;
 import ja2.clazz.ConstantPoolElemType;
@@ -27,7 +28,9 @@ import static ja2.clazz.ConstantPoolElemType.UTF8;
 import ja2.clazz.JavaObject;
 import ja2.clazz.JavaObject.Evaluation;
 import ja2.clazz.JavaObject.JClassInstance;
+import ja2.io.U2Pair;
 import ja2.member.FieldAccessFlag;
+import ja2.member.MethodHandleInfo.BootstrapMethodInfo;
 import ja2.member.MethodInfo;
 
 /**
@@ -246,10 +249,12 @@ public class Bytecodes {
                     ClassLoadHelper.loadClass((String) ctx.constantPool[toInt(value)], ctx.thread,
                             (classinfo) -> {
                                 JClassInstance result1 = classinfo.classObject;
-                                if (ctx.logging)
-                                    ctx.log(2, result1);
+                                if (ctx.logging) {
+                                    ctx.log(2, classinfo);
+                                    ctx.log(4, result1);
+                                }
                                 operandStack.push(result1);
-                            }, JavaInterpreter::handleError);
+                            }, Initialization::handleError);
                     break;
                 default:
                     result = null;
@@ -513,12 +518,16 @@ public class Bytecodes {
 
         @Override
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
-            ctx.getField(ctx.in.readU2(), (field) -> {
-                if(ctx.logging){
-                    ctx.log(2, field);
-                    ctx.log(4, field.clazz.staticFieldValues.get(field.name));
+            ctx.lookupField(ctx.in.readU2(), (field) -> {
+                if (ctx.logging) {
+                    ctx.log(2, field.clazz);
+                    ctx.log(4, field);
+                    ctx.log(6, field.clazz.staticFieldValues.get(field.name));
                 }
-                operandStack.push(field.clazz.staticFieldValues.get(field.name));
+                Object get = field.clazz.staticFieldValues.get(field.name);
+                if (get instanceof AbstractClassInfo)
+                    error(ctx.thread, "java/lang/InternalError", "AbstractClassInfo leaked");
+                operandStack.push(get);
             }, ctx.ec);
         }
 
@@ -568,7 +577,7 @@ public class Bytecodes {
         @Override
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
             Object value = operandStack.pop();
-            if(ctx.logging)
+            if (ctx.logging)
                 ctx.log(2, value);
             operandStack.push(value);
             operandStack.push(value);
@@ -581,7 +590,7 @@ public class Bytecodes {
         @Override
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
             int methodRefIndex = ctx.in.readU2();
-            ctx.getMethod(methodRefIndex, (method2) -> {
+            ctx.lookupMethod(methodRefIndex, (method2) -> {
                 if (ctx.logging)
                     ctx.log(2, method2);
                 Object[] invokeArgs
@@ -606,48 +615,49 @@ public class Bytecodes {
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
             int methodRefIndex = ctx.in.readU2();
             if (instructionCode == 185)
-                ctx.in.readU2();// TODO mit jelent invokeinterface-nél a count, és mi a 0? elég lenne 1 getMethod hívás, mert a method descriptorban benne van a paraméterek száma
-            ctx.getMethod(methodRefIndex, (method3) -> {
-                Object[] args2
-                        = new Object[method3.parameterTypes.length];
-                for (int i = args2.length - 1; i >= 0; i--)
-                    args2[i] = operandStack.pop();
-                JavaObject.JClassInstance this0 = (JavaObject.JClassInstance) operandStack
-                        .pop();
-                if (this0
-                        == null)
-                    error(ctx.thread, "java/lang/NullPointerException",
-                            "Cannot invoke method " + method3
-                            + " on null");
-                VmCallback<MethodInfo> lambda = (method2) -> {
-                    if (ctx.logging)
-                        ctx.log(2, method2);
+                ctx.in.readU2();// TODO mit jelent invokeinterface-nél a count, és mi a 0?
+            U2Pair methodref = (U2Pair) ctx.constantPool[methodRefIndex];
+            U2Pair nat = (U2Pair) ctx.constantPool[methodref.b];
+            String descriptor = (String) ctx.constantPool[nat.b];
+            Object[] args2
+                    = new Object[MethodInfo.parseDescriptor(descriptor).length];
+            for (int i = args2.length - 1; i >= 0; i--)
+                args2[i] = operandStack.pop();
+            JavaObject.JClassInstance this0 = (JavaObject.JClassInstance) operandStack
+                    .pop();
+            if (this0
+                    == null)
+                error(ctx.thread, "java/lang/NullPointerException",
+                        "Cannot invoke method"
+                        + " on null");
+            VmCallback<MethodInfo> lambda = (method2) -> {
+                if (ctx.logging)
+                    ctx.log(2, method2);
 
+                if (logMethodInvoke)
+                    System.out
+                            .println("invoking method " + method2
+                                    + " in class " + method2.clazz
+                                    + " with args "
+                                    + Arrays
+                                    .toString(args2)+" from "+ctx.thread.stackTrace.peek());
+                ctx.thread.executeMethod(method2, this0, args2, (result2) -> {
                     if (logMethodInvoke)
                         System.out
-                                .println("invoking method " + method2
-                                        + " in class " + method2.clazz
-                                        + " with args "
+                                .println("Continuing with " + ctx.method
+                                        + " in class " + ctx.clazz + "(invoked with "
                                         + Arrays
-                                        .toString(args2));
-                    ctx.thread.executeMethod(method2, this0, args2, (result2) -> {
-                        if (logMethodInvoke)
-                            System.out
-                                    .println("Continuing with " + ctx.method
-                                            + " in class " + ctx.clazz + "(invoked with "
-                                            + Arrays
-                                            .toString(ctx.args) + ")");
-                        if (debugger != null)
-                            debugger.continuingMethod(ctx.method);
-                        if (result2 != VmContext.VOID)
-                            operandStack.push(result2);
-                    });
-                };
-                if (instructionCode == 183)
-                    lambda.run(method3);
-                else
-                    ctx.getMethod(methodRefIndex, this0.classInfo, lambda, ctx.ec);
-            }, ctx.ec);
+                                        .toString(ctx.args) + ")");
+                    if (ctx.logging)
+                        ctx.log(4, result2);
+                    if (debugger != null)
+                        debugger.continuingMethod(ctx.method);
+                    if (result2 != VmContext.VOID)
+                        operandStack.push(result2);
+                });
+            };
+            JClassInstance scope = (JClassInstance) ((instructionCode == 183) ? null : this0);
+            ctx.lookupMethod(scope, methodRefIndex, lambda, ctx.ec);
         }
 
     }
@@ -657,7 +667,7 @@ public class Bytecodes {
         @Override
         @SuppressWarnings("null")
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
-            ctx.getField(ctx.in.readU2(), (field) -> {
+            ctx.lookupField(ctx.in.readU2(), (field) -> {
                 if (field.access.contains(FieldAccessFlag.STATIC))
                     error(ctx.thread, "java/lang/IncompatibleClassChangeError",
                             field.name + " is a static field in class "
@@ -709,7 +719,7 @@ public class Bytecodes {
 
         @Override
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
-            ctx.getField(ctx.in.readU2(), (field) -> {
+            ctx.lookupField(ctx.in.readU2(), (field) -> {
                 if (field.access.contains(FieldAccessFlag.STATIC))
                     error(ctx.thread, "java/lang/IncompatibleClassChangeError",
                             field.name + " is a static field in class "
@@ -730,7 +740,7 @@ public class Bytecodes {
 
         @Override
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
-            ctx.getField(ctx.in.readU2(), (field) -> {
+            ctx.lookupField(ctx.in.readU2(), (field) -> {
                 if (!field.access.contains(FieldAccessFlag.STATIC))
                     error(ctx.thread, "java/lang/IncompatibleClassChangeError",
                             field.name + " is a static field in class "
@@ -795,7 +805,7 @@ public class Bytecodes {
                     readU2()]], ctx.thread, (objectClass) -> {
                         objectClass.instantiate(ctx.thread, (instance) -> {
                             operandStack.push(instance);
-                            if(ctx.logging)
+                            if (ctx.logging)
                                 ctx.log(2, instance);
                         }, ctx.ec);
                     }, ctx.ec);
@@ -1133,7 +1143,7 @@ public class Bytecodes {
             JavaObject.JClassInstance jcia = ((JavaObject.JClassInstance) operandStack.pop());
             JavaObject.JClassInstance jcib = ((JavaObject.JClassInstance) operandStack.pop());
             int brTo = ctx.in.readU2();
-            if ((jcia == null && jcib == null) || (!(jcia == null || jcib == null) && jcia.id == jcib.id))
+            if (jcia == jcib)
                 ctx.relativeJumpMinus3(brTo);
         }
 
@@ -1360,6 +1370,7 @@ public class Bytecodes {
             operandStack.push((char) toInt(operandStack.pop()));
         }
     }
+
     private static class i2b implements BytecodeInstruction {
 
         @Override
@@ -1372,8 +1383,8 @@ public class Bytecodes {
 
         @Override
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
-            int opcodeStart = (int) ctx.mcIn.pc-1;
-            //ctx.in.skipPadding(4);
+            int opcodeStart = (int) ctx.mcIn.pc - 1;
+            ctx.mcIn.skipPadding(4);
             int def = ctx.in.readInt();
             int n = ctx.in.readInt();
             int value = toInt(operandStack.pop());
@@ -1393,6 +1404,32 @@ public class Bytecodes {
             if (ctx.logging)
                 ctx.log(4, "doesn't matched anything; jumped to " + opcodeStart + "+" + def + "=" + (opcodeStart + def));
         }
+    }
+
+    private static class invokedynamic implements BytecodeInstruction {
+
+        @Override
+        @SuppressWarnings("null")
+        public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
+            U2Pair idinfo = (U2Pair) ctx.constantPool[ctx.in.readU2()];
+            ctx.in.readU2(); // 0
+            BootstrapMethodInfo bmi = ctx.clazz.bootstrapMethods.get(idinfo.a);
+            bmi.method.execute(ctx, operandStack, () -> {
+                U2Pair nat = (U2Pair) ctx.constantPool[idinfo.b];
+                JClassInstance obj = (JClassInstance) operandStack.pop();
+                if (ctx.logging) {
+                    ctx.log(2, "Bootstrap Method: " + bmi);
+                    ctx.log(2, "Method Name: " + ctx.constantPool[nat.a]);
+                    ctx.log(2, "Method Descriptor: " + ctx.constantPool[nat.b]);
+                    ctx.log(2, "Object: " + obj);
+                }
+                obj.classInfo.getMethod((String) ctx.constantPool[nat.a],
+                        (String) ctx.constantPool[nat.b], ctx.thread, (methodInfo) -> {
+                            System.out.println("bm:" + methodInfo);
+                        }, ctx.ec);
+            });
+        }
+
     }
     public static String[] mnemonics = new String[256];
     public static BytecodeInstruction[] i = new BytecodeInstruction[256];
@@ -1480,6 +1517,7 @@ public class Bytecodes {
         i[181] = new putfield();
         i[182] = i[183] = i[185] = new invoke_______();
         i[184] = new invokestatic();
+        i[186] = new invokedynamic();
         i[187] = new New();
         i[188] = new newarray();
         i[189] = new anewarray();
@@ -1630,6 +1668,7 @@ public class Bytecodes {
         mnemonics[183] = "invokespecial";
         mnemonics[184] = "invokestatic";
         mnemonics[185] = "invokeinterface";
+        mnemonics[186] = "invokedynamic";
         mnemonics[187] = "new";
         mnemonics[188] = "newarray";
         mnemonics[189] = "anewarray";

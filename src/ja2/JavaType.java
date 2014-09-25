@@ -136,7 +136,7 @@ public class JavaType {
         if (primitive)
             callback.run(PrimitiveTypeClassInfo.get(internalClassName));
         else if (arrayElementType != null)
-            callback.run(new ArrayTypeClassInfo(this));
+            callback.run(ArrayTypeClassInfo.of(arrayElementType, thread));
         else
             ClassLoadHelper.loadClass(internalClassName, thread, (VmCallback) callback, ec);
     }

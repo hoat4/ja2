@@ -12,11 +12,11 @@ public abstract class AbstractClassInfo {
      * When setting this, <code>asType</code> must be set!
      */
     public String name;
-    public final boolean isPrimitiveClass;
+    public final boolean isPrimitive;
     public JavaObject.JClassInstance classObject;
     public JavaType asType;
 
     protected AbstractClassInfo(boolean isPrimitiveClass) {
-        this.isPrimitiveClass = isPrimitiveClass;
+        this.isPrimitive = isPrimitiveClass;
     }
 }

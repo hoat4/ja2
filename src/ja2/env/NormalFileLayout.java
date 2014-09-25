@@ -5,6 +5,7 @@
  */
 package ja2.env;
 
+import ja2.platform.desktop.Main;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -22,7 +23,7 @@ public class NormalFileLayout {
             nativedir.content.addAll(natives(nativedir));
             fs.mkdir("/lib/ext");
             fs.mkdir("/lib/classes");
-            fs.mkdir("/user");
+            fs.root.content.add(new MirrorDir(fs.root, "user", Main.getStringConfig("vm.file.userdir")));
             fs.mkdir("/remote");
             DirectoryData datadir = fs.mkdir("/data");
             datadir.content.add(createStdout(datadir));
@@ -44,7 +45,7 @@ public class NormalFileLayout {
     }
 
     private static INode createStdout(DirectoryData datadir) {
-        return new FileData(datadir, "stdout", new FileData.WriteFile() {
+        return new FileData(datadir, "stdout", null, new FileData.WriteFile() {
 
             @Override
             public void write(byte b) {
@@ -56,7 +57,7 @@ public class NormalFileLayout {
     }
 
     private static INode createStderr(DirectoryData datadir) {
-        return new FileData(datadir, "stderr", new FileData.WriteFile() {
+        return new FileData(datadir, "stderr", null, new FileData.WriteFile() {
 
             @Override
             public void write(byte b) {
@@ -68,7 +69,9 @@ public class NormalFileLayout {
     }
 
     private static INode createStdin(DirectoryData datadir) {
-        return new FileData(datadir, "stdin", new FileData.WriteFile() {
+        return new FileData(datadir, "stdin", new FileData.ReadFile() {
+            
+        }, new FileData.WriteFile() {
 
             @Override
             public void write(byte b) {

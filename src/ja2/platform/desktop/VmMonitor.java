@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import ja2.clazz.BadClassFileException;
-import ja2.JavaInterpreter;
+import ja2.Initialization;
 import ja2.member.MethodAccessFlag;
 import ja2.member.MethodInfo;
 import javax.swing.DefaultListModel;
@@ -341,14 +341,14 @@ public class VmMonitor extends javax.swing.JFrame implements VmDebugger {
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void jToggleButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jToggleButton1ActionPerformed
-        JavaInterpreter.enable = jToggleButton1.isSelected();
+        Initialization.enable = jToggleButton1.isSelected();
         if (jToggleButton1.isSelected()) {
             buffer = new StringBuilder();
-            JavaInterpreter.setDebugger(this);
+            Initialization.setDebugger(this);
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    JavaInterpreter.main(new String[0]);
+                    Initialization.main(new String[0]);
                 }
             }).start();
         }

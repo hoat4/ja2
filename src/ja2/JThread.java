@@ -4,6 +4,7 @@
  */
 package ja2;
 
+import static ja2.Initialization.toString;
 import ja2.platform.desktop.Main;
 import java.io.IOException;
 import java.util.LinkedList;
@@ -43,10 +44,10 @@ public class JThread {
 
     public void executeMethod(MethodInfo mi, JavaObject.JClassInstance thiz, Object[] args, VmCallback<Object> callback) {
         if (mi.accessFlags.contains(MethodAccessFlag.ABSTRACT))
-            JavaInterpreter.error(this, "java/lang/AbstractMethodError", "Tried to invoke abstract method: " + mi);
+            Initialization.error(this, "java/lang/AbstractMethodError", "Tried to invoke abstract method: " + mi);
         MethodCallInfo call = new MethodCallInfo(mi, stackTrace.peek(), thiz, args, this, callback);
         if (h)
-            JavaInterpreter.debugger.methodInvoked(call);
+            Initialization.debugger.methodInvoked(call);
         stackTrace.push(call);
         if (mi.accessFlags.contains(MethodAccessFlag.NATIVE)) {
             call.vmContext.isLocked = true;
@@ -86,6 +87,15 @@ public class JThread {
                 ctx.log(0, (ctx.mcIn.pc - 1) + ": " + statementName);
             }
             runner.run(ctx, ctx.operandStack, instructionCode);
+        } catch (JException jex) {
+            String ts = Initialization.toString((JClassInstance) jex.ex.fieldValues.get(
+                    "detailMessage"));
+            System.out.println("Java Exception: " + jex.ex.classInfo.name
+                    + ";message=" + ts);
+            for (MethodCallInfo stackTrace1 : stackTrace) {
+                System.out.println("  at "+stackTrace1);
+            }
+            runnable = false;
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
@@ -105,7 +115,7 @@ public class JThread {
         popMethod(VmContext.VOID);
     }
     
-    public final boolean h = JavaInterpreter.debugger != null;
+    public final boolean h = Initialization.debugger != null;
     private static int tidgen;
     private int tid = tidgen++;
 

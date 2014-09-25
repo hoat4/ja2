@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import ja2.JThread;
-import ja2.JavaInterpreter;
+import ja2.Initialization;
 import ja2.JavaType;
 import ja2.platform.desktop.Main;
 import ja2.callback.ErrorCallback;
@@ -28,14 +28,14 @@ public class ClassLoadHelper {
             return;
         }
         if(name.startsWith("[")) {
-            callback.run(new ArrayTypeClassInfo(JavaType.getType(name.substring(1))));
+            callback.run(ArrayTypeClassInfo.of(JavaType.getType(name.substring(1)), thread));
             return;
         }
         try {
             loadClassPrivate(name, (result) -> {
                 classCache.put(name, result);
                 if (!testing)
-                    JavaInterpreter.initializeClass(result, thread, () -> callback.run(result), ec);
+                    Initialization.initializeClass(result, thread, () -> callback.run(result), ec);
                 else
                     callback.run(result);
             }, ec, thread);
@@ -49,7 +49,7 @@ public class ClassLoadHelper {
         if (classLoadInfo == null) {
             if(Main.getBooleanConfig("vm.load.enableUserClassLoader"))
                loadUserClass(name, callback, ec, thread);
-            else JavaInterpreter.error(thread, "java/lang/NoClassDefFoundError", "Class '"+name+"' not found and vm.load.enableUserClassLoader turned off");
+            else Initialization.error(thread, "java/lang/NoClassDefFoundError", "Class '"+name+"' not found and vm.load.enableUserClassLoader turned off");
             return;
         }
         callback.run(ClassFileParser.parseClass(classLoadInfo));
@@ -57,12 +57,12 @@ public class ClassLoadHelper {
 
     private static void loadUserClass(String name, VmCallback<ClassInfo> callback, ErrorCallback ec, JThread thread) {
         // TODO ClassLoader object why constant?
-        JavaInterpreter.USER_CLASSLOADER.classInfo
+        Initialization.USER_CLASSLOADER.classInfo
                 .getMethod("loadClass", "(Ljava/lang/String;)V", thread, (loadClassMethod) -> {
-                    Object[] param = new Object[]{JavaInterpreter.convertString(thread, name)};
-                    thread.executeMethod(loadClassMethod, JavaInterpreter.USER_CLASSLOADER, param,
+                    Object[] param = new Object[]{Initialization.convertString(thread, name)};
+                    thread.executeMethod(loadClassMethod, Initialization.USER_CLASSLOADER, param,
                             (result)
-                            -> callback.run((ClassInfo) JavaInterpreter.getClassInfo((JavaObject.JClassInstance) result)));
+                            -> callback.run((ClassInfo) Initialization.getClassInfo((JavaObject.JClassInstance) result)));
                 }, ec);
     }
 
@@ -73,7 +73,7 @@ public class ClassLoadHelper {
         try {
             ClassLoadInfo classLoadInfo = BootstrapClassLoader.loadClass(name);
             if(classLoadInfo == null)
-                JavaInterpreter.error(thread, "java/lang/NoClassDefFoundError", "Class not found (instantLoadClass): "+name);
+                Initialization.error(thread, "java/lang/NoClassDefFoundError", "Class not found (instantLoadClass): "+name);
             cached = ClassFileParser.parseClass(classLoadInfo);
             classCache.put(name, cached);
             return cached;

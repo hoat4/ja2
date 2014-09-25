@@ -30,6 +30,9 @@ public class MethodCallInfo {
 
     @Override
     public String toString() {
-        return method.clazz.name + "." + method.toString();
+        String result = method.clazz.name + "." + method.toString();
+        if(method.code == null)
+            result += " (Native Method)";
+        return result;
     }
 }

@@ -18,7 +18,7 @@ public class VmLifecycle {
     }
     
     public void run() {
-        while(JavaInterpreter.currentThread.runnable&&JavaInterpreter.enable) {
+        while(Initialization.currentThread.runnable&&Initialization.enable) {
             for (int i = 0; i < thread.runningThreadsRef.size(); i++) {
                 thread.runningThreadsRef.get(i).tick();
             }

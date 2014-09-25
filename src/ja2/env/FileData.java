@@ -15,16 +15,26 @@ import static ja2.vm.Bytecodes.toInt;
 public class FileData extends INode {
 
     public byte[] content;
+    private final ReadFile reader;
     private final WriteFile writer;
 
     public FileData(DirectoryData parent, String name) {
         super(parent, name);
+        reader = null;
         writer = null;
     }
 
-    public FileData(DirectoryData parent, String name, WriteFile writer) {
+    public FileData(DirectoryData parent, String name, ReadFile reader, WriteFile writer) {
         super(parent, name);
+        this.reader = reader;
         this.writer = writer;
+    }
+
+    public ReadFile createReader() {
+        if (reader == null)
+            return new ReadFile(this);
+        else
+            return reader;
     }
 
     public WriteFile createWriter() {
@@ -33,7 +43,40 @@ public class FileData extends INode {
         else
             return writer;
     }
-    
+
+    public static class ReadFile {
+
+        private FileData f;
+        private int pos;
+
+        public ReadFile() {
+        }
+
+        public ReadFile(FileData file) {
+            f = file;
+        }
+
+        public byte read() {
+            if (pos >= f.content.length - 1)
+                return -1;
+            else
+                return f.content[pos++];
+        }
+
+        public int read(JavaObject.JArray jArray, int index, int len) {
+            int c = 0;
+            for (int i = index; i < index+len; i++) {
+                int read = read();
+                if(read == -1) {
+                    break;
+                }
+                jArray.array[i] = read;
+                c++;
+            }
+            return c;
+        }
+    }
+
     public static class WriteFile {
 
         private FileData f;

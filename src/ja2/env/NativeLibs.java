@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import ja2.JavaInterpreter;
+import ja2.Initialization;
 import ja2.callback.VmCallback;
 import ja2.clazz.JavaObject;
 import ja2.vm.VmContext;
@@ -28,14 +28,14 @@ public class NativeLibs {
     public static void load(VmContext ctx, Files fs, JavaObject.JClassInstance l) {
         try {
             // j/l/CL$NativeLibrary
-            FileData f = (FileData) fs.inode(JavaInterpreter.toString((JavaObject.JClassInstance) l));
+            FileData f = (FileData) fs.inode(Initialization.toString((JavaObject.JClassInstance) l));
             int lid = ((int) f.content[0]) << 8;
             lid |= ((int) f.content[1]);
             if (loaders.size() <= lid)
-                JavaInterpreter.error(ctx.thread, "java/lang/UnsatisfiedLinkError", "No such native loader #" + lid);
+                Initialization.error(ctx.thread, "java/lang/UnsatisfiedLinkError", "No such native loader #" + lid);
             loaders.get(lid).run();
         } catch (FileException ex) {
-            JavaInterpreter.error(ctx.thread, "java/lang/InternalError", "Can't load native lib");
+            Initialization.error(ctx.thread, "java/lang/InternalError", "Can't load native lib");
         }
     }
 }

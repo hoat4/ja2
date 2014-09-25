@@ -63,7 +63,7 @@ public class FilesTest {
     }
     
     @Test
-    public void testDefaultDirs() {
-        
+    public void rootHasProperPath() {
+        assertEquals("/", new Files().root.path());
     }
 }

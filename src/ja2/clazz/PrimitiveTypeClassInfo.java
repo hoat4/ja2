@@ -4,7 +4,7 @@ import ja2.JavaType;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import ja2.JavaInterpreter;
+import ja2.Initialization;
 
 /**
  *
@@ -12,9 +12,10 @@ import ja2.JavaInterpreter;
  */
 public class PrimitiveTypeClassInfo extends AbstractClassInfo {
 
-    public  static final PrimitiveTypeClassInfo[] array = {
+    public static final PrimitiveTypeClassInfo[] array = {
         create("byte"), create("char"), create("short"), create("int"),
-        create("float"), create("boolean"), create("double"), create("long")};
+        create("float"), create("boolean"), create("double"), create("long"),
+        create("void")};
     /*őpublic static final PrimitiveTypeClassInfo BYTE =
      new PrimitiveTypeClassInfo("byte");
      public static final PrimitiveTypeClassInfo CHAR =
@@ -39,10 +40,9 @@ public class PrimitiveTypeClassInfo extends AbstractClassInfo {
     }
 
     public static PrimitiveTypeClassInfo get(String name) {
-        for (PrimitiveTypeClassInfo primitiveTypeClassInfo : array) {
-            if(primitiveTypeClassInfo.name.equals(name))
+        for (PrimitiveTypeClassInfo primitiveTypeClassInfo : array)
+            if (primitiveTypeClassInfo.name.equals(name))
                 return primitiveTypeClassInfo;
-        }
         return null;
     }
 

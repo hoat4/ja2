@@ -30,7 +30,7 @@ public class DirectoryData extends INode {
         return inode;
     }
 
-    private INode inodeByName(String name) throws FileException {
+    protected INode inodeByName(String name) throws FileException {
         for (INode inode : content)
             if (inode.name.equals(name))
                 return inode;

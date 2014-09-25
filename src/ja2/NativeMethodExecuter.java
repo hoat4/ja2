@@ -6,9 +6,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import static ja2.JavaInterpreter.convertString;
-import static ja2.JavaInterpreter.error;
+import static ja2.Initialization.convertString;
+import static ja2.Initialization.error;
 import ja2.callback.VmCallback;
+import ja2.clazz.AbstractClassInfo;
+import ja2.clazz.ArrayTypeClassInfo;
 import ja2.clazz.ClassAccessFlag;
 import ja2.clazz.ClassInfo;
 import ja2.clazz.ClassLoadHelper;
@@ -30,6 +32,8 @@ import ja2.member.MethodInfo;
 import ja2.vm.Bytecodes;
 import ja2.vm.VmContext;
 import static ja2.vm.VmContext.VOID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -50,14 +54,14 @@ public class NativeMethodExecuter {
         Object p0 = parameters.length > 0 ? parameters[0] : null;
         switch (method.clazz.name + "::" + method.name) {
             case "java/lang/Class::getClassLoader0":
-                ctx.thread.popMethod(JavaInterpreter.getClassLoader(thiz));
+                ctx.thread.popMethod(Initialization.getClassLoader(thiz));
                 break;
             case "java/lang/Class::desiredAssertionStatus0":
                 ctx.thread.popMethod(0);
                 break;
             case "java/lang/Class::getPrimitiveClass":
-                ctx.thread.popMethod(PrimitiveTypeClassInfo.get(JavaInterpreter.
-                        toString((JavaObject.JClassInstance) p0)));
+                ctx.thread.popMethod(PrimitiveTypeClassInfo.get(Initialization.
+                        toString((JavaObject.JClassInstance) p0)).classObject);
                 break;
             case "java/lang/Class::getDeclaredFields0":
                 if (!thiz.classInfo.name.equals("java/lang/Class"))
@@ -120,7 +124,7 @@ public class NativeMethodExecuter {
                 }, ctx.ec);
                 break;
             case "java/lang/Class::forName0":
-                ClassLoadHelper.loadClass(JavaInterpreter.toString((JClassInstance) p0).replace('.', '/'), ctx.thread, (clazz) -> {
+                ClassLoadHelper.loadClass(Initialization.toString((JClassInstance) p0).replace('.', '/'), ctx.thread, (clazz) -> {
                     ctx.thread.popMethod(clazz.classObject);
                 }, ctx.ec);
                 break;
@@ -141,6 +145,20 @@ public class NativeMethodExecuter {
                     ClassLoadHelper.loadClass(ci.superClassName, ctx.thread, (clazz) -> {
                         ctx.thread.popMethod(clazz.classObject);
                     }, ctx.ec);
+                break;
+            case "java/lang/Class::getComponentType":
+                if (thiz.transfer instanceof ArrayTypeClassInfo)
+                    ((ArrayTypeClassInfo) thiz.transfer).elemType.asClassInfo(ctx.thread, (cinfo) -> {
+                        ctx.thread.popMethod(cinfo.classObject);
+                    }, ctx.ec);
+                else
+                    ctx.thread.popMethod(null);
+                break;
+            case "java/lang/Class::isArray":
+                ctx.thread.popMethod(thiz.transfer instanceof ArrayTypeClassInfo ? 1 : 0);
+                break;
+            case "java/lang/Class::isPrimitive":
+                ctx.thread.popMethod(((AbstractClassInfo) thiz.transfer).isPrimitive ? 1 : 0);
                 break;
 
             case "sun/reflect/NativeConstructorAccessorImpl::newInstance0":
@@ -224,11 +242,11 @@ public class NativeMethodExecuter {
                 ctx.thread.popMethod(VOID);
                 break;
             case "java/lang/System::mapLibraryName":
-                ctx.thread.popMethod(convertString(ctx.thread, JavaInterpreter.toString((JClassInstance) p0) + ".lib"));
+                ctx.thread.popMethod(convertString(ctx.thread, Initialization.toString((JClassInstance) p0) + ".lib"));
                 break;
 
             case "java/lang/ClassLoader$NativeLibrary::findBuiltinLib":
-                String inputLibName = JavaInterpreter.toString((JClassInstance) p0);
+                String inputLibName = Initialization.toString((JClassInstance) p0);
                 if (inputLibName.equals("zip.lib"))
                     ctx.thread.popMethod(convertString(ctx.thread, "/lib/native/zip.lib"));
                 else
@@ -242,7 +260,7 @@ public class NativeMethodExecuter {
 
             case "sun/misc/Signal::findSignal":
                 // http://people.cs.pitt.edu/~alanjawi/cs449/code/shell/UnixSignals.htm
-                switch (JavaInterpreter.toString((JClassInstance) p0)) {
+                switch (Initialization.toString((JClassInstance) p0)) {
                     case "HUP":
                         ctx.thread.popMethod(1);
                         break;
@@ -276,8 +294,8 @@ public class NativeMethodExecuter {
                             clazz.instantiate(ctx.thread, (backtrace) -> {
                                 thiz.fieldValues.put("backtrace", backtrace);
                                 ctx.thread.popMethod(null);
-                            }, JavaInterpreter::handleError);
-                        }, JavaInterpreter::handleError);
+                            }, Initialization::handleError);
+                        }, Initialization::handleError);
                 break;
             case "java/lang/Throwable::getStackTraceDepth":
                 ctx.thread.popMethod(((Collection) thiz.transfer).size());
@@ -323,6 +341,9 @@ public class NativeMethodExecuter {
 
             case "java/lang/Runtime::freeMemory":
                 ctx.thread.popMethod(Runtime.getRuntime().freeMemory());
+                break;
+            case "java/lang/Runtime::availableProcessors":
+                ctx.thread.popMethod(Runtime.getRuntime().availableProcessors());
                 break;
 
             case "sun/misc/Unsafe::arrayBaseOffset":
@@ -396,7 +417,7 @@ public class NativeMethodExecuter {
                 ctx.thread.popMethod(VmContext.VOID);
                 break;
             case "java/io/UnixFileSystem::getBooleanAttributes0":
-                String fpath = JavaInterpreter.toString((JClassInstance) ((JClassInstance) p0).fieldValues.get("path"));
+                String fpath = Initialization.toString((JClassInstance) ((JClassInstance) p0).fieldValues.get("path"));
                 if (!fs.exists(fpath))
                     ctx.thread.popMethod(0);
                 else
@@ -419,6 +440,19 @@ public class NativeMethodExecuter {
                 fs.writers.get(fhandle).write((JArray) p0, Bytecodes.toInt(parameters[1]), Bytecodes.toInt(parameters[2]));
                 ctx.thread.popMethod(VOID);
                 break;
+            case "java/io/FileInputStream::readBytes":
+                fhandle = Bytecodes.toInt(((JClassInstance) thiz.fieldValues.get("fd")).fieldValues.get("handle"));
+                ctx.thread.popMethod(fs.readers.get(fhandle).read((JArray) p0, Bytecodes.toInt(parameters[1]), Bytecodes.toInt(parameters[2])));
+                break;
+            case "java/io/FileInputStream::open":
+                ((JClassInstance) thiz.fieldValues.get("fd")).fieldValues.put("handle", fs.readers.size());
+                try {
+                    fs.readers.add(fs.file(Initialization.toString((JClassInstance) p0)).createReader());
+                } catch (FileException ex) {
+                    error(ctx.thread, "java/lang/IOException", ex.getMessage());
+                }
+                ctx.thread.popMethod(VOID);
+                break;
 
             case "java/security/AccessController::doPrivileged":
                 switch (ctx.method.parameterTypes.length) {
@@ -432,7 +466,7 @@ public class NativeMethodExecuter {
                         }, ctx.ec);
                         break;
                     default:
-                        JavaInterpreter
+                        Initialization
                                 .error(ctx.thread, "java/lang/UnsatisfiedLinkError", "AccessController.doPrivileged with " + ctx.method.parameterTypes.length + "parameters");
                 }
                 break;
@@ -476,13 +510,19 @@ public class NativeMethodExecuter {
                 ctx.thread.popMethod(VOID);
                 break;
             case "java/lang/Object::getClass":
-                ctx.thread.popMethod(thiz.classInfo.classObject);
+                ctx.thread.popMethod(thiz.descriptiveClassInfo.classObject);
                 break;
             case "java/lang/String::intern":
                 ctx.thread.popMethod(internString(thiz));
                 break;
+
+            case "java/lang/reflect/Array::newArray":
+                System.out.println("na" + p0);
+                JavaType ctype = ((AbstractClassInfo) ((JClassInstance) p0).transfer).asType;
+                ctx.thread.popMethod(new JArray(Bytecodes.toInt(parameters[1]), ctype, ctx.thread));
+                break;
             default:
-                JavaInterpreter.error(ctx.thread, "java/lang/UnsatisfiedLinkError", method
+                Initialization.error(ctx.thread, "java/lang/UnsatisfiedLinkError", method
                         + " in class " + method.clazz);
         }
     }
@@ -493,7 +533,7 @@ public class NativeMethodExecuter {
     private static final Files fs = NormalFileLayout.create();
 
     private static JClassInstance internString(JClassInstance instance) {
-        String s = JavaInterpreter.toString(instance);
+        String s = Initialization.toString(instance);
         if (stringIntern.containsKey(s))
             return stringIntern.get(s);
         else {
@@ -512,7 +552,7 @@ public class NativeMethodExecuter {
 //                toString(JavaInterpreter.STACK_TRACE.toArray()));
         if (srcPos + length > src.array.length || dstPos + length
                 > dst.array.length)
-            JavaInterpreter.error(thread, "java/lang/ArrayIndexOutOfBoundsException",
+            Initialization.error(thread, "java/lang/ArrayIndexOutOfBoundsException",
                     "in System.arraycopy:src.length=" + src.array.length
                     + ",dst.length:" + dst.array.length + ",srcPos:" + srcPos
                     + ",dstPos" + dstPos + ",length=" + length);

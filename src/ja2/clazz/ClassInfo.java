@@ -13,7 +13,9 @@ import ja2.JThread;
 import ja2.clazz.JavaObject.JArray;
 import ja2.callback.ErrorCallback;
 import ja2.callback.VmCallback;
+import ja2.io.U2Pair;
 import ja2.member.FieldInfo;
+import ja2.member.MethodHandleInfo;
 import ja2.member.MethodInfo;
 
 /**
@@ -28,12 +30,15 @@ public class ClassInfo extends AbstractClassInfo {
     public Map<String, Object> staticFieldValues = new HashMap<>();
     public MethodInfo clinitMethod;
     public MethodInfo[] decraledMethods;
-    public Object[] contextConstantPool;
+    public Object[] cp;
     public ConstantPoolElemType[] contextConstantPoolElementTypes;
     public boolean systemClass = false;
     private Object JavaObject;
     public EnumSet<ClassAccessFlag> access;
     public int rawModifiers;
+    public String sourceFile, signature;
+    public List<InnerClassInfo> innerClasses = new ArrayList<>();
+    public List<MethodHandleInfo.BootstrapMethodInfo> bootstrapMethods = new ArrayList<>();
 
     public ClassInfo() {
         super(false);
@@ -47,6 +52,10 @@ public class ClassInfo extends AbstractClassInfo {
     }
 
     public void getMethod(final String name, final JavaType[] paramTypes, JThread thread, final VmCallback<MethodInfo> callback, final ErrorCallback errorCallback) {
+        getMethodPrivate(this, name, paramTypes, thread, callback, errorCallback);
+    }
+
+    private void getMethodPrivate(ClassInfo origClass, final String name, final JavaType[] paramTypes, JThread thread, final VmCallback<MethodInfo> callback, final ErrorCallback errorCallback) {
         if (decraledMethods != null)
             for (MethodInfo method : decraledMethods)
                 if (method.name.equals(name) && Arrays.equals(method.parameterTypes,
@@ -56,12 +65,12 @@ public class ClassInfo extends AbstractClassInfo {
                 }
         if (superClassName != null)
             ja2.clazz.ClassLoadHelper.loadClass(superClassName, thread, (ClassInfo superClass) -> {
-                superClass.getMethod(name, paramTypes, thread, callback, errorCallback);
+                superClass.getMethodPrivate(origClass, name, paramTypes, thread, callback, errorCallback);
             }, errorCallback);
         else
             errorCallback.onError(new NoSuchMethodException("Method " + name
                     + " with parameter types " + MethodInfo.toStringParameters(
-                            paramTypes) + " not found in " + this));
+                            paramTypes) + " not found in " + origClass));
     }
 
     public void getMethod(String name, String descriptor, JThread thread, VmCallback<MethodInfo> callback, ErrorCallback errorCallback) {
@@ -79,12 +88,12 @@ public class ClassInfo extends AbstractClassInfo {
                 clazz.getField(name, thread, callback, errorCallback);
             }, errorCallback);
         else
-            errorCallback.onError(new NoSuchFieldException("Field " + name + " not found in "+this));
+            errorCallback.onError(new NoSuchFieldException("Field " + name + " not found in " + this));
     }
 
     @Override
     public String toString() {
-        return name;
+        return "class " + name;
     }
 
     // TODO instanceof not working with interface inheritance
@@ -171,4 +180,44 @@ public class ClassInfo extends AbstractClassInfo {
                 result.add(decraledMethod);
         return result;
     }
+
+    public String constantDetails(int ref_index) {
+        ConstantPoolElemType type = contextConstantPoolElementTypes[ref_index];
+        Object value = cp[ref_index];
+        value = enhanceU2PairInfo(value);
+        return "Constant pool of " + this + "[" + ref_index + " (" + type + ") = " + value + "]";
+    }
+
+    private Object enhanceU2PairInfo(Object value) {
+        if (value instanceof U2Pair) {
+            U2Pair u2p = (U2Pair) value;
+            Object a = enhanceU2PairInfo(cp[u2p.a]);
+            Object b = enhanceU2PairInfo(cp[u2p.b]);
+            value = "U2Pair (reference) [a=" + a + ", b=" + b + "]";
+        }
+        return value;
+    }
+
+    /*private static class InterfaceIterator {
+
+        private ClassInfo clazz;
+        private int idx;
+        private final JThread thread;
+        private final VmCallback<MethodInfo> callback;
+        private final ErrorCallback ec;
+
+        public InterfaceIterator(ClassInfo clazz, JThread thread, VmCallback<MethodInfo> callback, ErrorCallback ec) {
+            this.clazz = clazz;
+            this.thread = thread;
+            this.callback = callback;
+            this.ec = ec;
+        }
+
+        public void step() {
+            String iname = clazz.implementedInterfaces[idx++];
+            ClassLoadHelper.loadClass(iname, thread, (iface) -> {
+                iface.get
+            }, ec);
+        }
+    }*/
 }

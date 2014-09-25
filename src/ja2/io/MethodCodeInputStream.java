@@ -17,12 +17,13 @@ public class MethodCodeInputStream extends InputStream {
     }
 
     public void relativeJumpMinus3(int newpc) {
-       relativeJumpMinus3((short)newpc);
+        relativeJumpMinus3((short) newpc);
     }
+
     public void relativeJumpMinus3(short newpc) {
 //        System.out.println("relativejumpminus3:"+newpc);
         pc += newpc - 3;
-  //      System.out.println("currentpc:"+pc);
+        //      System.out.println("currentpc:"+pc);
     }
 
     @Override
@@ -30,6 +31,13 @@ public class MethodCodeInputStream extends InputStream {
         if (pc == code.length)
             return -1;
         return code[pc++];
+    }
+
+    public void skipPadding(int i) throws IOException {
+        long name = i - pc % i;
+        System.out.println("because counter=" + pc + " and i=" + i + " skip " + name);
+        if (pc % i > 0)
+            pc += name;
     }
 
 }

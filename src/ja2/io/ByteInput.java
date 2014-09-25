@@ -38,9 +38,8 @@ public class ByteInput {
 
     public void skip(long n) throws IOException {
         //  System.out.println("skip:"+Integer.toString ((int)n,16));
-        for (long i = 0; i < n; i++) {
+        for (long i = 0; i < n; i++)
             read();
-        }
     }
 
     public String readString(int length) throws IOException {
@@ -69,10 +68,12 @@ public class ByteInput {
         return result;
     }
 
-    public void skipPadding(int i) throws IOException {
-        long name = i - counter % i;
-        System.out.println("because counter="+counter+" and i="+i+" skip "+name);
-        if (counter % i > 0)
-            skip(name);
+
+    public U2Pair readU2Pair(Object[] annotate) throws IOException {
+        U2Pair result = new U2Pair();
+        result.a = readU2();
+        result.b = readU2();
+        result.annotate = annotate;
+        return result;
     }
 }

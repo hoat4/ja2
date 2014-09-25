@@ -3,14 +3,13 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/attila/develop/NetBeansProjects/JavaInterpreter/src/javainterpreter/clazz/ClassLoadHelper.java</file>
-            <file>file:/home/attila/develop/NetBeansProjects/JavaInterpreter/src/javainterpreter/JThread.java</file>
-            <file>file:/home/attila/develop/NetBeansProjects/JavaInterpreter/src/javainterpreter/clazz/JavaObject.java</file>
-            <file>file:/home/attila/develop/NetBeansProjects/JavaInterpreter/src/javainterpreter/vm/VmContext.java</file>
-            <file>file:/home/attila/develop/NetBeansProjects/JavaInterpreter/src/javainterpreter/vm/Bytecodes.java</file>
-            <file>file:/home/attila/develop/NetBeansProjects/JavaInterpreter/src/javainterpreter/clazz/ClassInfo.java</file>
-            <file>file:/home/attila/develop/NetBeansProjects/JavaInterpreter/src/javainterpreter/JavaInterpreter.java</file>
-            <file>file:/home/attila/develop/NetBeansProjects/JavaInterpreter/src/javainterpreter/NativeMethodExecuter.java</file>
+            <file>file:/home/attila/develop/ja2/src/ja2/JavaInterpreter.java</file>
+            <file>file:/home/attila/develop/ja2/src/ja2/NativeMethodExecuter.java</file>
+            <file>file:/home/attila/develop/ja2/src/ja2/VmDebugger.java</file>
+            <file>file:/home/attila/develop/ja2/src/ja2/VmLifecycle.java</file>
+            <file>file:/home/attila/develop/ja2/src/ja2/JThread.java</file>
+            <file>file:/home/attila/develop/ja2/src/ja2/platform/desktop/Main.java</file>
+            <file>file:/home/attila/develop/ja2/vm.properties</file>
         </group>
     </open-files>
 </project-private>
