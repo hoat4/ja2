@@ -4,16 +4,12 @@
  */
 package ja2.vm;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.LinkedList;
-import java.util.List;
 import ja2.JThread;
 import ja2.Initialization;
-import static ja2.Initialization.error;
 import ja2.JavaType;
-import ja2.platform.desktop.Main;
 import ja2.callback.ErrorCallback;
 import ja2.callback.VmCallback;
 import ja2.clazz.ClassInfo;
@@ -64,13 +60,19 @@ public class VmContext {
             this.in = new ByteInput(mcIn);
 
             localVariables = new Object[methodCall.method.maxLocalVariables];
+            int argsStartIndex = 0;
             if (thiz != null) {
                 localVariables[0] = thiz;
-                System.arraycopy(margs, 0, localVariables, 1, margs.length);
-            } else
-                System.arraycopy(margs, 0, localVariables, 0, margs.length);
+                argsStartIndex = 1;
+            }
+            int j = 0;
+            for (int i = argsStartIndex; i < localVariables.length && j < args.length; i++) {
+                localVariables[i] = args[j++];
+                if (localVariables[i] instanceof Long || localVariables[i] instanceof Double)
+                    i++;
+            }
             if (logging) {
-                log(-2, Arrays.toString(localVariables));
+                log(-2, Initialization.toString(localVariables));
                 log(-1, "Caller: " + methodCall.caller);
             }
         } else {
@@ -100,6 +102,8 @@ public class VmContext {
             throw new IllegalStateException("[Perf-Bug] VmContext.log(String) called but it's disabled. ");
         for (int i = 0; i < indent + 2; i++)
             methodLog.append(' ');
+        if(!(msg instanceof String))
+            msg = Initialization.toString(msg);
         methodLog.append(msg).append('\n');
         //System.out.println("Logged: "+msg);
     }

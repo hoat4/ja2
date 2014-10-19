@@ -14,6 +14,7 @@ import ja2.clazz.ArrayTypeClassInfo;
 import ja2.clazz.ClassAccessFlag;
 import ja2.clazz.ClassInfo;
 import ja2.clazz.ClassLoadHelper;
+import ja2.clazz.ClassMeta;
 import ja2.clazz.JavaObject;
 import ja2.clazz.JavaObject.Evaluation;
 import ja2.clazz.JavaObject.JArray;
@@ -26,10 +27,13 @@ import ja2.env.Files;
 import ja2.env.INode;
 import ja2.env.NativeLibs;
 import ja2.env.NormalFileLayout;
+import ja2.env.SparseArray;
 import ja2.member.FieldInfo;
 import ja2.member.MethodCallInfo;
 import ja2.member.MethodInfo;
 import ja2.vm.Bytecodes;
+import static ja2.vm.Bytecodes.i;
+import static ja2.vm.Bytecodes.toInt;
 import ja2.vm.VmContext;
 import static ja2.vm.VmContext.VOID;
 import java.util.logging.Level;
@@ -132,7 +136,7 @@ public class NativeMethodExecuter {
                 ctx.thread.popMethod(((ClassInfo) thiz.transfer).access.contains(ClassAccessFlag.INTERFACE) ? 1 : 0);
                 break;
             case "java/lang/Class::getName0":
-                ctx.thread.popMethod(convertString(ctx.thread, ((ClassInfo) thiz.transfer).asType.internalClassName));
+                ctx.thread.popMethod(convertString(ctx.thread, ((AbstractClassInfo) thiz.transfer).asType.internalClassName));
                 break;
             case "java/lang/Class::getModifiers":
                 ctx.thread.popMethod(((ClassInfo) thiz.transfer).rawModifiers);
@@ -159,6 +163,39 @@ public class NativeMethodExecuter {
                 break;
             case "java/lang/Class::isPrimitive":
                 ctx.thread.popMethod(((AbstractClassInfo) thiz.transfer).isPrimitive ? 1 : 0);
+                break;
+            case "java/lang/Class::getEnclosingMethod0":
+                if (!(thiz.transfer instanceof ClassInfo)) {
+                    ctx.thread.popMethod(null);
+                    break;
+                }
+                ClassMeta citm = ((ClassInfo) thiz.transfer).meta;
+                if (citm.enclosingMethodName == null)
+                    ctx.thread.popMethod(null);
+                else
+                    ClassLoadHelper.loadClass(citm.enclosingClassName, ctx.thread, (eclass) -> {
+                        JArray jarray = new JArray(3, JavaType.clazz("java/lang/Object"), ctx.thread);
+                        jarray.array[0] = eclass.classObject;
+                        jarray.array[1] = citm.enclosingMethodName;
+                        jarray.array[2] = citm.enclosingMethodDescriptor;
+                        ctx.thread.popMethod(jarray);
+                    }, ctx.ec);
+                break;
+            case "java/lang/Class::getDeclaringClass0":
+                if (!(thiz.transfer instanceof ClassInfo)) {
+                    ctx.thread.popMethod(null);
+                    break;
+                }
+                citm = ((ClassInfo) thiz.transfer).meta;
+                if (citm.enclosingClassName == null)
+                    ctx.thread.popMethod(null);
+                else
+                    ClassLoadHelper.loadClass(citm.enclosingClassName, ctx.thread, (eclass) -> {
+                        ctx.thread.popMethod(eclass.classObject);
+                    }, ctx.ec);
+                break;
+            case "java/lang/Class::getProtectionDomain0":
+                ctx.thread.popMethod(null);
                 break;
 
             case "sun/reflect/NativeConstructorAccessorImpl::newInstance0":
@@ -281,7 +318,8 @@ public class NativeMethodExecuter {
                 ctx.thread.popMethod(2L);
                 break;
 
-            case "javainterpreter/test/Test::sysoutint":
+            case "ja2/test/Test::sysoutint":
+            case "ja2/test/Test2::sysoutint":
                 System.out.println(p0);
                 ctx.thread.popMethod(VmContext.VOID);
                 return;
@@ -361,11 +399,22 @@ public class NativeMethodExecuter {
                 ctx.thread.popMethod((name).index);
                 break;
             case "sun/misc/Unsafe::compareAndSwapObject":
+            case "sun/misc/Unsafe::compareAndSwapLong":
             case "sun/misc/Unsafe::compareAndSwapInt":
                 JClassInstance o = (JClassInstance) p0;
-                int offset = (int) parameters[1];
+                int offset = toInt(parameters[1]);
                 Object expected = parameters[2];
                 Object x = parameters[3];
+                if (o instanceof JArray) {
+                    Object[] a = ((JArray) o).array;
+                    int iresult = 0;
+                    if (a[offset] == expected) {
+                        a[offset] = x;
+                        iresult = 1;
+                    }
+                    ctx.thread.popMethod(iresult);
+                    return;
+                }
                 FieldInfo finfo = o.classInfo.fields[offset];
                 boolean bresult = false;
                 if (o.fieldValues.get(finfo.name) == expected) {
@@ -375,10 +424,26 @@ public class NativeMethodExecuter {
                 ctx.thread.popMethod(bresult ? 1 : 0);
                 break;
             case "sun/misc/Unsafe::getIntVolatile":
+            case "sun/misc/Unsafe::getObjectVolatile":
                 o = (JClassInstance) p0;
-                offset = (int) parameters[1];
-                finfo = o.classInfo.fields[offset];
-                ctx.thread.popMethod(o.fieldValues.get(finfo.name));
+                offset = Bytecodes.toInt(parameters[1]);
+                if (o instanceof JArray)
+                    ctx.thread.popMethod(((JArray) o).array[offset]);
+                else {
+                    finfo = o.classInfo.fields[offset];
+                    ctx.thread.popMethod(o.fieldValues.get(finfo.name));
+                }
+                break;
+            case "sun/misc/Unsafe::putObjectVolatile":
+                o = (JClassInstance) p0;
+                offset = Bytecodes.toInt(parameters[1]);
+                if (o instanceof JArray)
+                    ((JArray) o).array[offset] = parameters[2];
+                else {
+                    finfo = o.classInfo.fields[offset];
+                    o.fieldValues.put(finfo.name, parameters[2]);
+                }
+                ctx.thread.popMethod(VOID);
                 break;
             case "sun/misc/Unsafe::allocateMemory":
                 ctx.thread.popMethod(MemorySpace.allocate((long) parameters[0]));
@@ -563,7 +628,7 @@ public class NativeMethodExecuter {
     private static class MemorySpace {
 
         private static long IDgen;
-        private static final Map<Long, Byte> map = new HashMap<>();
+        private static final SparseArray map = new SparseArray();
         private static final Map<Long, Long> len = new HashMap<>();
 
         public static long allocate(long size) {
@@ -585,8 +650,6 @@ public class NativeMethodExecuter {
         }
 
         public static byte getByte(long index) {
-            if (!map.containsKey(index))
-                return 0;
             return map.get(index);
         }
 
@@ -598,8 +661,9 @@ public class NativeMethodExecuter {
 
         public static void free(long index) {
             long size = len.get(index);
-            for (int i = 0; i < size; i++)
-                map.remove(index + i);
+            for (long i = index; i < index + size; i++)
+                map.put(i, (byte) 0);
+            map.check(index, index + size);
         }
     }
 }

@@ -43,6 +43,8 @@ public class BootstrapClassLoader {
             result.systemClass = true;
             result.in = input;
         }
+        if(result.in != null)
+            result.in = new BufferedInputStream(result.in);
         return result;
     }
 
@@ -86,7 +88,7 @@ public class BootstrapClassLoader {
             File file = new File(z, name);
             if (!file.exists())
                 return null;
-            return new BufferedInputStream(new FileInputStream(file));
+            return new FileInputStream(file);
         }
 
     }

@@ -5,10 +5,10 @@
  */
 package ja2.member;
 
+import ja2.Initialization;
 import ja2.clazz.ClassInfo;
 import ja2.io.U2Pair;
 import ja2.vm.VmContext;
-import java.util.Arrays;
 import java.util.Deque;
 
 /**
@@ -128,7 +128,7 @@ public class MethodHandleInfo {
 
         @Override
         public String toString() {
-            return "BootstrapMethodInfo{" + "method=" + method + ", args=" + Arrays.toString(args) + '}';
+            return "BootstrapMethodInfo{" + "method=" + method + ", args=" + Initialization.toString(args) + '}';
         }
 
     }

@@ -33,13 +33,10 @@ public class ClassInfo extends AbstractClassInfo {
     public Object[] cp;
     public ConstantPoolElemType[] contextConstantPoolElementTypes;
     public boolean systemClass = false;
-    private Object JavaObject;
     public EnumSet<ClassAccessFlag> access;
     public int rawModifiers;
-    public String sourceFile, signature;
-    public List<InnerClassInfo> innerClasses = new ArrayList<>();
     public List<MethodHandleInfo.BootstrapMethodInfo> bootstrapMethods = new ArrayList<>();
-
+    public final ClassMeta meta = new ClassMeta();
     public ClassInfo() {
         super(false);
     }

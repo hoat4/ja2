@@ -80,7 +80,10 @@ public class Bytecodes {
 
         @Override
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
-            ctx.thread.popMethod(operandStack.pop());
+            Object result = operandStack.pop();
+            if(ctx.logging)
+                ctx.log(2, result);
+            ctx.thread.popMethod(result);
         }
 
     }
@@ -101,7 +104,7 @@ public class Bytecodes {
             if (array.array.length < index) {
                 System.out.println("arrayindex" + ctx.method.name + ctx.method.clazz.name);
                 System.out.flush();
-                error(ctx.thread, "java/lang/ArrayIndexOutOfBoundsException", "index: " + index);
+                error(ctx.thread, "java/lang/ArrayIndexOutOfBoundsException", "negative index: " + index);
             }
             //System.err.println("array:" + array.array.length);
             if (index < 0 || index >= array.array.length) {
@@ -111,7 +114,7 @@ public class Bytecodes {
                 error(ctx.thread, "java/lang/ArrayIndexOutOfBoundsException", index + ", but array's length is " + array.array.length + " (" + array.elemType + "[])");
             }
             if (ctx.logging) {
-                ctx.log(2, array.elemType + "[" + index + "]");
+                ctx.log(2, index+" @ "+array);
                 ctx.log(4, array.array[index]);
             }
             operandStack.push(array.array[index]);
@@ -597,6 +600,8 @@ public class Bytecodes {
                         = new Object[method2.parameterTypes.length];
                 for (int i = invokeArgs.length - 1; i >= 0; i--)
                     invokeArgs[i] = operandStack.pop();
+                if(ctx.logging)
+                    ctx.log(4, Initialization.toString(invokeArgs));
                 ctx.thread.executeMethod(method2, null, invokeArgs, (result2) -> {
                     if (debugger != null)
                         debugger.continuingMethod(ctx.method);
@@ -640,7 +645,7 @@ public class Bytecodes {
                                     + " in class " + method2.clazz
                                     + " with args "
                                     + Arrays
-                                    .toString(args2)+" from "+ctx.thread.stackTrace.peek());
+                                    .toString(args2) + " from " + ctx.thread.stackTrace.peek());
                 ctx.thread.executeMethod(method2, this0, args2, (result2) -> {
                     if (logMethodInvoke)
                         System.out
@@ -888,6 +893,16 @@ public class Bytecodes {
 
     }
 
+    private static class dconst_ implements BytecodeInstruction {
+
+        @Override
+        public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
+            int num = instructionCode - 14;
+            operandStack.push((double) num);
+        }
+
+    }
+
     private static class iadd implements BytecodeInstruction {
 
         @Override
@@ -964,6 +979,22 @@ public class Bytecodes {
         }
 
     }
+    private static class idiv implements BytecodeInstruction {
+
+        @Override
+        public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
+            Object a = operandStack.pop();
+            Object b = operandStack.pop();
+            if (a == null)
+                error(ctx.thread, "java/lang/NullPointerException",
+                        "1. number in int divide");
+            if (b == null)
+                error(ctx.thread, "java/lang/NullPointerException",
+                        "2. number in int divide");
+            operandStack.push(toInt(a) / toInt(b));
+        }
+
+    }
 
     private static class iand implements BytecodeInstruction {
 
@@ -1009,6 +1040,16 @@ public class Bytecodes {
         public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
             int bi = toInt(operandStack.pop());
             int ai = toInt(operandStack.pop());
+            operandStack.push(ai >> bi);
+        }
+
+    }
+    private static class lshr implements BytecodeInstruction {
+
+        @Override
+        public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
+            long bi = ((Number)operandStack.pop()).longValue();
+            long ai = ((Number)operandStack.pop()).longValue();
             operandStack.push(ai >> bi);
         }
 
@@ -1218,11 +1259,27 @@ public class Bytecodes {
             Object b = operandStack.pop();
             if (a == null)
                 error(ctx.thread, "java/lang/NullPointerException",
-                        "1. number in int add");
+                        "1. number in int 'or'");
             if (b == null)
                 error(ctx.thread, "java/lang/NullPointerException",
-                        "2. number in int add");
+                        "2. number in int 'or'");
             operandStack.push((toInt(a)) | (toInt(b)));
+        }
+
+    }
+    private static class lor implements BytecodeInstruction {
+
+        @Override
+        public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
+            Object a = operandStack.pop();
+            Object b = operandStack.pop();
+            if (a == null)
+                error(ctx.thread, "java/lang/NullPointerException",
+                        "1. number in long 'or'");
+            if (b == null)
+                error(ctx.thread, "java/lang/NullPointerException",
+                        "2. number in long 'or'");
+            operandStack.push((((Number)a).longValue()) | (((Number)a).longValue()));
         }
 
     }
@@ -1429,8 +1486,30 @@ public class Bytecodes {
                         }, ctx.ec);
             });
         }
-
     }
+
+    private static class tableswitch implements BytecodeInstruction {
+
+        @Override
+        public void run(VmContext ctx, Deque<Object> operandStack, int instructionCode) throws IOException {
+            int opcodeStart = (int) ctx.mcIn.pc - 1;
+            ctx.mcIn.skipPadding(4);
+            int def = ctx.in.readInt();
+            int low = ctx.in.readInt();
+            int high = ctx.in.readInt();
+            int value = toInt(operandStack.pop());
+            int[] offsets = new int[high - low + 1];
+            for (int j = 0; j < offsets.length; j++)
+                offsets[j] = ctx.in.readInt();
+            if (ctx.logging)
+                ctx.log(2, "def/low/high/value: " + def + "/" + low + "/" + high + "/" + value);
+            if (value < low || value > high)
+                ctx.absoluteJump(opcodeStart + def);
+            else
+                ctx.absoluteJump(opcodeStart - low + value);
+        }
+    }
+
     public static String[] mnemonics = new String[256];
     public static BytecodeInstruction[] i = new BytecodeInstruction[256];
 
@@ -1442,6 +1521,7 @@ public class Bytecodes {
         i[10] = new lconst_1();
         i[11] = new fconst_();
         i[12] = i[13] = new fconst_();
+        i[14] = i[15] = new dconst_();
         i[16] = new bipush();
         i[17] = new sipush();
         i[18] = i[19] = i[20] = new ldc();
@@ -1472,16 +1552,19 @@ public class Bytecodes {
         i[100] = new isub();
         i[104] = new imul();
         i[106] = new fmul();
+        i[108] = new idiv();
         i[112] = new irem();
         i[116] = new ineg();
         i[120] = new ishl();
         i[121] = new lshl();
         i[122] = new ishr();
+        i[123] = new lshr();
         i[124] = new iushr();
         i[125] = new lushr();
         i[126] = new iand();
         i[127] = new land();
         i[128] = new ior();
+        i[129] = new lor();
         i[130] = new ixor();
         i[132] = new iint();
         i[133] = new i2l();
@@ -1508,6 +1591,7 @@ public class Bytecodes {
         i[165] = new if_acmpeq();
         i[166] = new if_acmpne();
         i[167] = new Goto();
+        i[170] = new tableswitch();
         i[171] = new lookupswitch();
         i[172] = i[173] = i[174] = i[175] = i[176] = new _return();
         i[177] = new Return();
@@ -1544,6 +1628,8 @@ public class Bytecodes {
         mnemonics[11] = "fconst_0";
         mnemonics[12] = "fconst_1";
         mnemonics[13] = "fconst_2";
+        mnemonics[14] = "dconst_0";
+        mnemonics[15] = "dconst_1";
         mnemonics[16] = "bipush";
         mnemonics[17] = "sipush";
         mnemonics[18] = "ldc";
@@ -1575,7 +1661,11 @@ public class Bytecodes {
         mnemonics[44] = "aload_2";
         mnemonics[45] = "aload_3";
         mnemonics[46] = "iaload";
+        mnemonics[47] = "laload";
+        mnemonics[48] = "faload";
+        mnemonics[49] = "daload";
         mnemonics[50] = "aaload";
+        mnemonics[51] = "baload";
         mnemonics[52] = "caload";
         mnemonics[54] = "istore";
         mnemonics[55] = "lstore";
@@ -1617,16 +1707,19 @@ public class Bytecodes {
         mnemonics[100] = "isub";
         mnemonics[104] = "imul";
         mnemonics[106] = "fmul";
+        mnemonics[108] = "idiv";
         mnemonics[112] = "irem";
         mnemonics[116] = "ineg";
         mnemonics[120] = "ishl";
         mnemonics[121] = "lshl";
         mnemonics[122] = "ishr";
+        mnemonics[123] = "lshr";
         mnemonics[124] = "iushr";
         mnemonics[125] = "lushr";
         mnemonics[126] = "iand";
         mnemonics[127] = "land";
         mnemonics[128] = "ior";
+        mnemonics[129] = "lor";
         mnemonics[130] = "ixor";
         mnemonics[132] = "iint";
         mnemonics[133] = "i2l";
@@ -1654,6 +1747,7 @@ public class Bytecodes {
         mnemonics[165] = "if_acmpeq";
         mnemonics[166] = "if_acmpne";
         mnemonics[167] = "goto";
+        mnemonics[170] = "tableswitch";
         mnemonics[171] = "lookupswitch";
         mnemonics[172] = "ireturn";
         mnemonics[173] = "lreturn";

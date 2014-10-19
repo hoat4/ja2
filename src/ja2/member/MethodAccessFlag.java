@@ -25,11 +25,12 @@ public enum MethodAccessFlag {
 
     public static EnumSet<MethodAccessFlag> fromBitmask(int bitmask) {
         EnumSet<MethodAccessFlag> result = EnumSet.noneOf(MethodAccessFlag.class);
-        for (MethodAccessFlag methodAccessFlag : values()) {
+        for (MethodAccessFlag methodAccessFlag : VALUES_CACHE) {
             if ((methodAccessFlag.bitmask & bitmask) > 0)
                 result.add(methodAccessFlag);
         }
         return result;
     }
+    private static final MethodAccessFlag[] VALUES_CACHE = values();
     
 }

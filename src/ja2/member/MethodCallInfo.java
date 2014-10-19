@@ -14,12 +14,14 @@ import ja2.vm.VmContext;
  * @author Attila
  */
 public class MethodCallInfo {
+
     public static final Object[] ZERO_PARAMETERS = new Object[0];
     public final MethodCallInfo caller;
     public final MethodInfo method;
     public final VmContext vmContext;
     public final Object[] args;
     public final VmCallback<Object> returnCallback;
+
     public MethodCallInfo(MethodInfo method, MethodCallInfo caller, JavaObject.JClassInstance thiz, Object[] args, JThread thread, VmCallback<Object> callback) {
         this.method = method;
         this.caller = caller;
@@ -31,8 +33,13 @@ public class MethodCallInfo {
     @Override
     public String toString() {
         String result = method.clazz.name + "." + method.toString();
-        if(method.code == null)
+        if (method.code == null)
             result += " (Native Method)";
+        else if (method.lineNumberTable != null)
+            try {
+                result += " @ line " + method.lineNumberTable[vmContext.mcIn.pc];
+            } catch (ArrayIndexOutOfBoundsException ex) {
+            }
         return result;
     }
 }

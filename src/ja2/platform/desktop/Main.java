@@ -33,7 +33,7 @@ public class Main {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws ClassNotFoundException, ReflectiveOperationException {
-        initNativeLoaders();
+        initNatívLoaders();
         Class<?> mainClass = Class.forName("ja2." + config.getProperty("vm.main"));
         mainClass.getMethod("main", String[].class).invoke(null, (Object) args);
     }
@@ -46,7 +46,7 @@ public class Main {
         return config.getProperty(name);
     }
 
-    private static void initNativeLoaders() {
+    private static void initNatívLoaders() {
         NativeLibs.loaders.add(null);
         NativeLibs.loaders.add(JZ::register);
     }

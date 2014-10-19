@@ -15,6 +15,7 @@ import ja2.clazz.ClassInfo;
 import ja2.member.FieldInfo;
 import ja2.member.MethodInfo;
 import ja2.vm.VmContext;
+import java.util.StringJoiner;
 
 /**
  *
@@ -43,13 +44,13 @@ public abstract class JavaObject {
 
         @Override
         public String toString() {
-            return "JArray" + Arrays.toString(array);
+            return "JArray "+Initialization.toString(array);
         }
 
         @Override
         public void instanceOf(String className, JThread thread, VmCallback<Boolean> callback, ErrorCallback ec) {
-            if (className.equals("java/lang/Object") || className.equals("[" + elemType.typeDescriptor))
-                callback.run(true);
+            if (className.equals("java/lang/Object") || className.equals("[" + elemType.typeDescriptor)||className.equals("[Ljava/lang/Object;")
+)                callback.run(true);
             else
                 callback.run(false);
         }

@@ -9,7 +9,7 @@ import ja2.JavaType;
 import ja2.platform.desktop.Main;
 import ja2.callback.ErrorCallback;
 import ja2.callback.VmCallback;
-import ja2.member.MethodInfo;
+import java.util.Collection;
 
 /**
  *
@@ -20,6 +20,7 @@ public class ClassLoadHelper {
     // TODO same class dereference in multiple threads at same time can cause multiple <clinit>
     public static final Map<String, ClassInfo> classCache = new HashMap<>();
     static boolean testing = false;
+    public static Collection<ClassInfo> loadedClasses = classCache.values();
 
     public static void loadClass(String name, JThread thread, VmCallback<ClassInfo> callback, ErrorCallback ec) {
         ClassInfo cached = classCache.get(name);

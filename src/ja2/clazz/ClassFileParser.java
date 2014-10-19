@@ -7,6 +7,7 @@ import java.util.EnumSet;
 import java.util.List;
 import static ja2.platform.desktop.Main.getBooleanConfig;
 import ja2.io.ByteInput;
+import ja2.io.U2Pair;
 import ja2.member.FieldInfo;
 import ja2.member.MethodHandleInfo;
 import ja2.member.MethodInfo;
@@ -275,7 +276,7 @@ public class ClassFileParser {
         }
         clazz.decraledMethods = methods.toArray(new MethodInfo[methods.size()]);
     }
-
+    
     private void processAttributes(MethodInfo method, FieldInfo field) throws
             IOException {
         int attributeCount = in.readU2();
@@ -292,16 +293,24 @@ public class ClassFileParser {
                     in.skip(2);//max-stack
                     method.maxLocalVariables = in.readU2();
                     short[] code = new short[(int) in.readU4()];
+                    method.lineNumberTable = new int[code.length];
                     for (int i = 0; i < code.length; i++)
                         code[i] = (short) in.read();
-                    //         System.out.println("Code:" + Arrays.toString(code));
+                    //         System.out.println("Code:" + Initialization.toString(code));
                     in.skip(8 * in.readU2());// TODO exception table
                     if (method != null)  //method == null ? field : method
                         method.code = code;
-                    processAttributes(null, null);
+                    processAttributes(method, null);
                     break;
                 case "LineNumberTable":
-                    in.skip(in.readU2() * 4);
+                    int line_number_table_length = in.readU2();
+                    for (int i = 0; i < line_number_table_length; i++) {
+                        int start_pc = in.readU2();
+                        int line_number = in.readU2();
+                        for (int k = start_pc; k < method.lineNumberTable.length; k++) {
+                            method.lineNumberTable[k] = line_number;
+                        }
+                    }
                     break;
                 case "LocalVariableTable":
                 case "LocalVariableTypeTable":
@@ -355,10 +364,10 @@ public class ClassFileParser {
             long attrlength = in.readU4();
             switch (attrname) {
                 case "SourceFile":
-                    clazz.sourceFile = (String) clazz.cp[in.readU2()];
+                    clazz.meta.sourceFile = (String) clazz.cp[in.readU2()];
                     break;
                 case "Signature":
-                    clazz.signature = (String) clazz.cp[in.readU2()];
+                    clazz.meta.signature = (String) clazz.cp[in.readU2()];
                     break;
                 case "InnerClasses":
                     int icc = in.readU2();
@@ -368,11 +377,17 @@ public class ClassFileParser {
                         ici.normal = in.readU2() > 0;
                         ici.anonymous = in.readU2() == 0;
                         ici.access = ClassAccessFlag.fromBitmask(in.readU2());
-                        clazz.innerClasses.add(ici);
+                        clazz.meta.innerClasses.add(ici);
                     }
                     break;
                 case "EnclosingMethod":
-                    in.skip(attrlength); // TODO process EnclosingMethod
+                    String ecname = (String) clazz.cp[(int) clazz.cp[in.readU2()]];
+                    U2Pair nat = (U2Pair) clazz.cp[in.readU2()];
+                    clazz.meta.enclosingClassName = ecname;
+                    if (nat == null)
+                        break;
+                    clazz.meta.enclosingMethodName = (String) clazz.cp[nat.a];
+                    clazz.meta.enclosingMethodDescriptor = (String) clazz.cp[nat.b];
                     break;
                 case "BootstrapMethods":
                     int bmc = in.readU2();

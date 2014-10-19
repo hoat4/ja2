@@ -20,6 +20,7 @@ import ja2.member.MethodAccessFlag;
 import ja2.member.MethodCallInfo;
 import ja2.member.MethodInfo;
 import ja2.vm.Bytecodes;
+import java.util.StringJoiner;
 
 /**
  *
@@ -81,57 +82,57 @@ public class Initialization {
         try {
             work(args);
         } finally {
-            //    System.out.println("Performance: " + ((System.nanoTime() - start_perf_ns_measure_local_variable_nb___) / 1000) + " μs");
+            System.out.println("Performance: " + ((System.nanoTime() - start_perf_ns_measure_local_variable_nb___) / 1000) + " μs");
         }
     }
 
     private static void work(final String[] args) {
         System.out.println("JVM started");
-            if ((args.length == 1 && args[0].equals("-debug")) || (args.length
-                    == 2 && args[1].equals("-debug")))
-                debugMode = true;
-            currentThread = new JThread(new ArrayList());
-            currentThread.runningThreadsRef.add(currentThread);
-            currentThread.runnable = true;
-            STRING = ClassLoadHelper.instantLoadClass("java/lang/String", currentThread);
-            ClassLoadHelper.loadClass("java/lang/Thread", currentThread, (threadClass) -> {
-                threadClass.instantiate(currentThread, (threadObject) -> {
-                    threadObject.transfer = currentThread;
-                    currentThread.object = threadObject;
-                    currentThread.object.fieldValues.put("tid", 1);
-                    currentThread.object.fieldValues.put("priority", 5);
-                    ClassLoadHelper.loadClass("java/lang/ThreadGroup", currentThread, (tgClass) -> {
-                        tgClass.instantiateAndInit(currentThread, (mainTG) -> {
-                            threadObject.invokeConstructor("(Ljava/lang/ThreadGroup;Ljava/lang/String;)V", currentThread, (ignored) -> {
-                                initializeClass(STRING, currentThread, () -> {
-                                    initPrimitives(currentThread, () -> {
-                                        ClassLoadHelper.loadClass("java/lang/System", currentThread, (systemClass) -> {
-                                            systemClass.getMethod("initializeSystemClass", "()V", currentThread, (sysInitMethod) -> {
-                                                currentThread.executeMethod(sysInitMethod, null, NO_PARAMETERS, (ignored2) -> {
-                                                    System.out.println("VM booted. ");
-                                                    ClassLoadHelper.loadClass(Main.getStringConfig("vm.start.main"), currentThread, (clazz) -> {
-                                                        clazz.getMethod("main", "([Ljava/lang/String;)V", currentThread, (mainMethod) -> {
-                                                            JavaType stringClass = JavaType.clazz("java/lang/String");
-                                                            JArray argArray = new JArray(args.length, stringClass, currentThread);
-                                                            // TODO args beszúrása argArray-be
-                                                            currentThread.executeMethod(mainMethod, null, new Object[]{argArray}, (a) -> {
-                                                                System.out.println("Application main method returned. ");
-                                                            });
-                                                        }, Throwable::printStackTrace);
+        if ((args.length == 1 && args[0].equals("-debug")) || (args.length
+                == 2 && args[1].equals("-debug")))
+            debugMode = true;
+        currentThread = new JThread(new ArrayList());
+        currentThread.runningThreadsRef.add(currentThread);
+        currentThread.runnable = true;
+        STRING = ClassLoadHelper.instantLoadClass("java/lang/String", currentThread);
+        ClassLoadHelper.loadClass("java/lang/Thread", currentThread, (threadClass) -> {
+            threadClass.instantiate(currentThread, (threadObject) -> {
+                threadObject.transfer = currentThread;
+                currentThread.object = threadObject;
+                currentThread.object.fieldValues.put("tid", 1);
+                currentThread.object.fieldValues.put("priority", 5);
+                ClassLoadHelper.loadClass("java/lang/ThreadGroup", currentThread, (tgClass) -> {
+                    tgClass.instantiateAndInit(currentThread, (mainTG) -> {
+                        threadObject.invokeConstructor("(Ljava/lang/ThreadGroup;Ljava/lang/String;)V", currentThread, (ignored) -> {
+                            initializeClass(STRING, currentThread, () -> {
+                                initPrimitives(currentThread, () -> {
+                                    ClassLoadHelper.loadClass("java/lang/System", currentThread, (systemClass) -> {
+                                        systemClass.getMethod("initializeSystemClass", "()V", currentThread, (sysInitMethod) -> {
+                                            currentThread.executeMethod(sysInitMethod, null, NO_PARAMETERS, (ignored2) -> {
+                                                System.out.println("VM booted with " + currentThread.methodCallCount + " method calls");
+                                                ClassLoadHelper.loadClass(Main.getStringConfig("vm.start.main"), currentThread, (clazz) -> {
+                                                    clazz.getMethod("main", "([Ljava/lang/String;)V", currentThread, (mainMethod) -> {
+                                                        JavaType stringClass = JavaType.clazz("java/lang/String");
+                                                        JArray argArray = new JArray(args.length, stringClass, currentThread);
+                                                        // TODO args beszúrása argArray-be
+                                                        currentThread.executeMethod(mainMethod, null, new Object[]{argArray}, (a) -> {
+                                                            System.out.println("Application main method returned. ");
+                                                        });
                                                     }, Throwable::printStackTrace);
-                                                });
-                                            }, Throwable::printStackTrace);
+                                                }, Throwable::printStackTrace);
+                                            });
                                         }, Throwable::printStackTrace);
                                     }, Throwable::printStackTrace);
                                 }, Throwable::printStackTrace);
-                            }, Throwable::printStackTrace, mainTG, convertString(currentThread, "Application main thread"));
-                        }, Throwable::printStackTrace);
+                            }, Throwable::printStackTrace);
+                        }, Throwable::printStackTrace, mainTG, convertString(currentThread, "Application main thread"));
                     }, Throwable::printStackTrace);
                 }, Throwable::printStackTrace);
             }, Throwable::printStackTrace);
+        }, Throwable::printStackTrace);
 
-            VmLifecycle vm = new VmLifecycle(currentThread);
-            vm.run();
+        VmLifecycle vm = new VmLifecycle(currentThread);
+        vm.run();
     }
     public static final Object[] NO_PARAMETERS = MethodCallInfo.ZERO_PARAMETERS;
 
@@ -145,6 +146,21 @@ public class Initialization {
             return null;
         Object[] stringContent = ((JArray) string.fieldValues.get("value")).array;
         return new String(toCharArray(stringContent));
+    }
+
+    public static String toString(Object obj) {
+        if(obj instanceof Object[]) {
+            StringJoiner j = new StringJoiner(", ");
+            for (Object elem : (Object[])obj) {
+                j.add(Initialization.toString(elem));
+            }
+            return "["+j+"]";
+        }
+        if (obj instanceof Character)
+            return ((int) (char) obj) + " = '" + obj + "'";
+        if (obj instanceof String)
+            return "\"" + obj + "\"";
+        return String.valueOf(obj);
     }
 
     private static char[] toCharArray(Object[] array) {

@@ -50,7 +50,7 @@ public class JavaType {
 
     private JavaType(JavaType arrayElementType) {
         this.typeDescriptor = '[' + arrayElementType.typeDescriptor;
-        this.internalClassName = null;
+        this.internalClassName = typeDescriptor;
         this.arrayElementType = arrayElementType;
         this.primitive = false;
         this.defaultValue = null;

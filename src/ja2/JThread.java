@@ -32,12 +32,12 @@ public class JThread {
     public JClassInstance object;
     public int priority;
     public final List<JThread> runningThreadsRef;
-            public JClassInstance waitingOn;
+    public JClassInstance waitingOn;
     public long wait;
     public static final long WAIT_NO = 0;
     public static final long WAIT_INFINITE = -1;
     public static final long WAIT_NATIVE = -2;
-
+    public long methodCallCount;
     public JThread(List<JThread> runningThreadsRef) {
         this.runningThreadsRef = runningThreadsRef;
     }
@@ -49,6 +49,7 @@ public class JThread {
         if (h)
             Initialization.debugger.methodInvoked(call);
         stackTrace.push(call);
+        methodCallCount++;
         if (mi.accessFlags.contains(MethodAccessFlag.NATIVE)) {
             call.vmContext.isLocked = true;
             NativeMethodExecuter.executeNativeMethod(call.vmContext);
@@ -70,9 +71,8 @@ public class JThread {
         if (wait > 0)
             if (System.currentTimeMillis() < wait)
                 return;
-            else {
+            else
                 unlock(true);
-            }
         long perfMeasureStartNSTime__ = LOG_PERF ? System.nanoTime() : 0;
         String statementName = null;
         try {
@@ -84,6 +84,8 @@ public class JThread {
                         + instructionCode + " (in " + ctx.method.name + ")");
             if (h && Bytecodes.mnemonics[instructionCode] != null) {
                 statementName = Bytecodes.mnemonics[instructionCode];
+                if (ctx.method.lineNumberTable != null)
+                    ctx.log(-2, "#" + ctx.method.lineNumberTable[ctx.mcIn.pc - 1]);
                 ctx.log(0, (ctx.mcIn.pc - 1) + ": " + statementName);
             }
             runner.run(ctx, ctx.operandStack, instructionCode);
@@ -92,9 +94,8 @@ public class JThread {
                     "detailMessage"));
             System.out.println("Java Exception: " + jex.ex.classInfo.name
                     + ";message=" + ts);
-            for (MethodCallInfo stackTrace1 : stackTrace) {
-                System.out.println("  at "+stackTrace1);
-            }
+            for (MethodCallInfo stackTrace1 : stackTrace)
+                System.out.println("  at " + stackTrace1);
             runnable = false;
         } catch (IOException ex) {
             throw new RuntimeException(ex);
@@ -105,16 +106,16 @@ public class JThread {
         }
     }
 
-    public  void unlock(boolean removeFromJCI) {
+    public void unlock(boolean removeFromJCI) {
         wait = WAIT_NO;
-        if(waitingOn != null) {
-            if(removeFromJCI)
-            waitingOn.lock.remove(this);
+        if (waitingOn != null) {
+            if (removeFromJCI)
+                waitingOn.lock.remove(this);
             waitingOn = null;
         }
         popMethod(VmContext.VOID);
     }
-    
+
     public final boolean h = Initialization.debugger != null;
     private static int tidgen;
     private int tid = tidgen++;

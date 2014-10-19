@@ -103,6 +103,7 @@ public class VmMonitor extends javax.swing.JFrame implements VmDebugger {
         jButton2 = new javax.swing.JButton();
         jToggleButton1 = new javax.swing.JToggleButton();
         jButton1 = new javax.swing.JButton();
+        jButton3 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("Ja2 - VmMonitor");
@@ -261,6 +262,13 @@ public class VmMonitor extends javax.swing.JFrame implements VmDebugger {
             }
         });
 
+        jButton3.setText("Classes");
+        jButton3.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton3ActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -273,6 +281,8 @@ public class VmMonitor extends javax.swing.JFrame implements VmDebugger {
                         .addComponent(jToggleButton1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jButton1)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jButton3)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(jButton2)))
                 .addContainerGap())
@@ -284,7 +294,8 @@ public class VmMonitor extends javax.swing.JFrame implements VmDebugger {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jButton2)
                     .addComponent(jToggleButton1)
-                    .addComponent(jButton1))
+                    .addComponent(jButton1)
+                    .addComponent(jButton3))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jSplitPane1)
                 .addContainerGap())
@@ -292,29 +303,6 @@ public class VmMonitor extends javax.swing.JFrame implements VmDebugger {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-
-    private void statementsListValueChanged(javax.swing.event.ListSelectionEvent evt) {//GEN-FIRST:event_statementsListValueChanged
-        String selectedStatementInfo = statementsList.getSelectedValue().toString();
-        int pc = parseInt(selectedStatementInfo.substring(0, selectedStatementInfo.indexOf(": ")));
-
-        Object[] localVariables = localVariablesByStatement.get(pc);
-        List<Object> operandStack = operandStacksByStatement.get(pc);
-
-        DefaultListModel lvlModel = new DefaultListModel();
-        for (int i = 0; i < 16; i++)
-            lvlModel.addElement(localVariables[i]);
-
-        localVariablesList.setModel(lvlModel);
-        DefaultListModel oslModel = new DefaultListModel();
-        for (Object object : operandStack)
-            oslModel.addElement(object);
-
-        operandStackList.setModel(oslModel);
-    }//GEN-LAST:event_statementsListValueChanged
-
-    private void brpClassTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_brpClassTextFieldActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_brpClassTextFieldActionPerformed
 
     private void jTree1ValueChanged(javax.swing.event.TreeSelectionEvent evt) {//GEN-FIRST:event_jTree1ValueChanged
         Object obj = jTree1.getLastSelectedPathComponent();
@@ -331,13 +319,11 @@ public class VmMonitor extends javax.swing.JFrame implements VmDebugger {
         jTextPane2.setText(method.vmContext.getLog());
     }//GEN-LAST:event_jTree1ValueChanged
 
-    private void brpMethodNameFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_brpMethodNameFieldActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_brpMethodNameFieldActionPerformed
-
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
+        long start_perf_ns_measure_local_variable_nb___ = System.nanoTime();
         for (int i = 0; i < jTree1.getRowCount(); i++)
             jTree1.expandRow(i);
+        System.out.println("Expanded " + jTree1.getRowCount() + " nodes @ " + ((System.nanoTime() - start_perf_ns_measure_local_variable_nb___) / 1000) + " μs");
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void jToggleButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jToggleButton1ActionPerformed
@@ -365,10 +351,43 @@ public class VmMonitor extends javax.swing.JFrame implements VmDebugger {
                     writer.print(mci.vmContext.getLog());
                 writer.println("End method call: " + mci);
             }
+            writer.flush();
+            writer.close();
         } catch (FileNotFoundException ex) {
             Logger.getLogger(VmMonitor.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_jButton1ActionPerformed
+
+    private void statementsListValueChanged(javax.swing.event.ListSelectionEvent evt) {//GEN-FIRST:event_statementsListValueChanged
+        String selectedStatementInfo = statementsList.getSelectedValue().toString();
+        int pc = parseInt(selectedStatementInfo.substring(0, selectedStatementInfo.indexOf(": ")));
+
+        Object[] localVariables = localVariablesByStatement.get(pc);
+        List<Object> operandStack = operandStacksByStatement.get(pc);
+
+        DefaultListModel lvlModel = new DefaultListModel();
+        for (int i = 0; i < 16; i++)
+        lvlModel.addElement(localVariables[i]);
+
+        localVariablesList.setModel(lvlModel);
+        DefaultListModel oslModel = new DefaultListModel();
+        for (Object object : operandStack)
+        oslModel.addElement(object);
+
+        operandStackList.setModel(oslModel);
+    }//GEN-LAST:event_statementsListValueChanged
+
+    private void brpMethodNameFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_brpMethodNameFieldActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_brpMethodNameFieldActionPerformed
+
+    private void brpClassTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_brpClassTextFieldActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_brpClassTextFieldActionPerformed
+
+    private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
+        new ClassViewer(this, false).setVisible(true);
+    }//GEN-LAST:event_jButton3ActionPerformed
 
     /**
      * @param args the command line arguments
@@ -410,6 +429,7 @@ public class VmMonitor extends javax.swing.JFrame implements VmDebugger {
     private javax.swing.JPanel debuggerPanel;
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
+    private javax.swing.JButton jButton3;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;

@@ -1,8 +1,8 @@
 package ja2.member;
 
+import ja2.Initialization;
 import ja2.clazz.ClassInfo;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import ja2.JavaType;
@@ -14,7 +14,7 @@ import ja2.JavaType;
 public class MethodInfo {
 
     public static String toStringParameters(JavaType[] paramTypes) {
-        String ptString = Arrays.toString(paramTypes);
+        String ptString = Initialization.toString(paramTypes);
         return '(' + ptString.substring(1, ptString.length() - 1) + ')';
     }
     public final EnumSet<MethodAccessFlag> accessFlags;
@@ -26,6 +26,7 @@ public class MethodInfo {
     public final ClassInfo clazz;
     public int maxLocalVariables;
     public int rawModifiers;
+    public int[] lineNumberTable;
 
     public MethodInfo(int accessFlags, String name,
             String descriptor, ClassInfo clazz) {
@@ -48,7 +49,7 @@ public class MethodInfo {
         sb.append(' ').append(returnType).append(' ').append(name).append(' ').
                 append(toStringParameters(
                 parameterTypes))/*.append(
-                 " {\n  ").append(Arrays.toString(code)).append("\n }")*/;
+                 " {\n  ").append(Initialization.toString(code)).append("\n }")*/;
         return sb.toString();
     }
 

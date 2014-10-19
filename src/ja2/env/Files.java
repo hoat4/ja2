@@ -58,7 +58,6 @@ public class Files {
         if (!path.startsWith("/"))
             path = wd + "/" + path;
         path = path.substring(1);
-        System.out.println(op + "->" + path);
         return path;
     }
 
